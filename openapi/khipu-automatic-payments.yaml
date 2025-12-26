@@ -1,0 +1,383 @@
+openapi: 3.0.3
+info:
+  license:
+    name: API Pagos Automáticos de Khipu
+    url: https://khipu.com
+  title: API Pagos Automáticos
+  description: >-
+    La API de Pago Automático (versión 1.0) de Khipu permite a los comercios
+    establecer  suscripciones para pagos recurrentes mediante débito bancario
+    (PAC). A través del  endpoint POST /v1/automatic-payment/subscription, el
+    comerciante envía información  como nombre de la suscripción, correo del
+    cliente, monto máximo, moneda, y URLs para  notificación, retorno o
+    cancelación. Al procesarse exitosamente, la API genera un  subscription_id
+    único y una redirect_url donde el usuario firma el mandato de débito  con su
+    banco. Luego, el comerciante puede consultar y gestionar el estado del PAC 
+    mediante otros endpoints. La autenticación se realiza utilizando la cabecera
+    x-api-key
+  version: v1.0
+  x-logo:
+    url: https://s3.amazonaws.com/static.khipu.com/2021/logo-transparent.png
+    altText: Logo de Khipu
+    href: https://khipu.com
+servers:
+  - url: https://payment-api.khipu.com
+    description: Production
+paths:
+  /v1/automatic-payment/subscription:
+    post:
+      summary: Creación de suscripción
+      description: >-
+        Éste método permite crear una suscripción nueva para un cliente, que
+        puede ser utilizada para pagos recurrentes automáticos.
+      operationId: createSubscription_1
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionCreationRequest'
+        required: true
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Retorna un objeto JSON con el id de la
+            suscripción  que puede ser utilizado para solicitar al cliente que
+            firme el mandato  de pago autómatico.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionCreationResult'
+        '400':
+          description: Solicitud incorrecta
+        '401':
+          description: No autorizado - Credenciales inválidas o faltantes
+        '404':
+          description: No encontrado - Recurso no disponible
+        '500':
+          description: Error en el servicio remoto :(
+  /v1/automatic-payment/subscription/{id}:
+    get:
+      summary: Estado de la Suscripción
+      description: >-
+        Éste método obtiene el estado actual de una suscripción de pago
+        automático.
+      operationId: fetchSubscriptionStatus_1
+      parameters:
+        - name: id
+          in: path
+          description: Identificador único de la suscripción a consultar.
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Retorna un objeto JSON con la información de la 
+            suscripción asociada al id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionStatus'
+        '400':
+          description: Solicitud incorrecta
+        '401':
+          description: No autorizado - Credenciales inválidas o faltantes
+        '404':
+          description: No encontrado - Recurso no disponible
+        '500':
+          description: Error en el servicio remoto :(
+  /v1/automatic-payment/charge-intent:
+    post:
+      summary: Creación de intención de cobro
+      description: >-
+        Éste método crea una nueva solicitud de cargo para la suscripción
+        especificada.
+      operationId: createCharge_1
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChargeRequest'
+        required: true
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Retorna un objeto JSON con el id del intento de
+            cargo que puede ser usado para rastrear la solicitud de un cargo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChargeResult'
+        '400':
+          description: Solicitud incorrecta
+        '401':
+          description: No autorizado - Credenciales inválidas o faltantes
+        '404':
+          description: No encontrado - Recurso no disponible
+        '500':
+          description: Error en el servicio remoto :(
+security:
+  - Api-Key: []
+components:
+  securitySchemes:
+    Api-Key:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    SubscriptionCreationRequest:
+      type: object
+      description: Objeto para solicitar una nueva suscripción de Pago Automático (PAC).
+      required:
+        - name
+        - email
+        - max_amount
+        - currency
+        - notify_url
+        - return_url
+        - cancel_url
+      properties:
+        name:
+          maxLength: 255
+          type: string
+          description: Nombre para identificar la suscripción.
+          example: Service XYZ Id 11.222.333-0
+        email:
+          maxLength: 255
+          type: string
+          description: El correo electrónico del cliente que se suscribe al servicio.
+          example: personal.email@gmail.com
+        max_amount:
+          maxLength: 255
+          type: number
+          description: Monto máximo que se puede cobrar mensualmente al cliente.
+          example: 1000
+        currency:
+          maxLength: 4
+          type: string
+          description: El código de moneda en el estándar ISO 4217.
+          example: CLP
+        notify_url:
+          maxLength: 1024
+          type: string
+          description: >-
+            La URL que se llamará cuando el cliente complete el proceso de firma
+            con el banco. Se enviará un mensaje JSON a través de POST con la
+            información de la suscripción con la siguiente estructura (`status`
+            puede ser __"enabled"__ o __"disabled"__): ```json
+              {
+                "subscription_id": string,
+                "status": "enabled"
+              }
+            ```
+          example: https://my-domain.biz/subscription-notify-api
+        return_url:
+          maxLength: 1024
+          type: string
+          description: >-
+            URL a la que redirigir al cliente cuando el proceso de firma se haya
+            completado.
+          example: https://my-domain.biz/subscription-result
+        cancel_url:
+          maxLength: 1024
+          type: string
+          description: >-
+            URL a la que redirigir al cliente si el proceso de firma no se pudo
+            completar.
+          example: https://my-domain.biz/subscription-cancel
+        service_reference:
+          type: string
+          description: >-
+            Valor a asociar con la suscripción. Puede ser útil cuando no quieres
+            que tu cliente sea identificado con un string único aleatorio en el
+            formulario de suscripción de mandato del banco.
+          example: 12345678K
+        image_url:
+          maxLength: 1024
+          type: string
+          description: URL de la imagen asociada a la suscripción.
+          example: https://my-domain.biz/subscription-image.png
+        description:
+          type: string
+          description: >-
+            Descripción detallada de la suscripción PAC (Pago Automático)
+            realizada en bancos para productos.
+          example: Suscripción PAC para el servicio XYZ.
+    SubscriptionCreationResult:
+      type: object
+      description: >-
+        Objeto con el resultado de una solicitud de creación de suscripción a
+        Pago Automático.
+      required:
+        - subscription_id
+        - redirect_url
+      properties:
+        subscription_id:
+          maxLength: 255
+          type: string
+          description: >-
+            Identificador único de la suscripción, que se asociará al servicio
+            adquirido por el cliente. Posteriormente, este valor puede ser usado
+            para consultar el estado de la suscripción.
+          example: 13a0f1aa-5e47-4894-aa8b-282dd19593ec
+        redirect_url:
+          maxLength: 1024
+          type: string
+          description: >-
+            La URL donde el comercio debe redirigir al usuario para que firme la
+            suscripción con su banco personal. Utiliza el id de la suscripción
+            como parámetro de la URL.
+          example: https://khipu.com/pac-manager/13a0f1aa-5e47-4894-aa8b-282dd19593ec
+    SubscriptionStatus:
+      type: object
+      description: Objeto con el estado de una suscripción de pago automático.
+      required:
+        - subscription_id
+        - status
+        - developer
+        - customer_bank_code
+        - service_reference
+      properties:
+        subscription_id:
+          maxLength: 255
+          type: string
+          description: Identificador único de la suscripción.
+          example: 13a0f1aa-5e47-4894-aa8b-282dd19593ec
+        status:
+          type: string
+          enum:
+            - DISABLED
+            - SIGNED
+            - ENABLED
+          description: >-
+            El estado actual de la suscripción. Un intento de cobro solo se
+            puede realizar si el estado es `ENABLED`.
+          example: SIGNED
+        developer:
+          type: boolean
+          description: >-
+            Indica si la suscripción fue creada usando el entorno de pruebas. Un
+            valor `false` significa que es una suscripción de producción.
+          example: false
+        customer_bank_code:
+          maxLength: 255
+          type: string
+          description: >-
+            El banco utilizado por el cliente para firmar la suscripción. Los
+            valores posibles son los utilizados en la API de Pagos de Khipu, o
+            `no-bank` si la suscripción no ha sido firmada.
+          example: '8'
+        service_reference:
+          maxLength: 255
+          type: string
+          description: El alias utilizado para identificar la suscripción.
+          example: Nombre de mi comercio
+    ChargeRequest:
+      type: object
+      description: >-
+        Objecto para enviar una solicitud de un nuevo cobro asociado a un id de
+        suscripción.
+      required:
+        - subscription_id
+        - amount
+        - subject
+        - body
+        - error_response_url
+        - custom
+        - transaction_id
+        - notify_url
+      properties:
+        subscription_id:
+          maxLength: 255
+          type: string
+          description: El ID de la suscripción que se cobrará.
+          example: 13a0f1aa-5e47-4894-aa8b-282dd19593ec
+        amount:
+          type: number
+          format: float
+          minimum: 1
+          description: >-
+            Monto que se cobrará. No use separador de miles, y un máximo de 4
+            decimales. Se asumirá la moneda en que el comercio registró su
+            cuenta en Khipu.
+          example: 10000
+        subject:
+          maxLength: 255
+          type: string
+          description: Asunto para identificar el cobro.
+          example: Cargo por servicio XYZ Id 11.222.333-0
+        body:
+          maxLength: 5120
+          type: string
+          description: >-
+            Descripción del cobro. Puede incluir información adicional sobre el
+            cobro, como el servicio o producto asociado, fecha, etc. Se
+            recomienda que sea lo más descriptivo posible.
+          example: 'Servicio XYZ - Noviembre 2022 - Monto: $10.000'
+        error_response_url:
+          maxLength: 1024
+          type: string
+          description: >-
+            URL que será llamada si ocurre un error en el proceso de cobro. Se
+            enviará un JSON por POST con la siguiente estructura:
+
+            ```json
+              {
+                "subscription_id": string,
+                "transaction_id": string,
+                "error_message": string
+              }
+            ```
+          example: https://my-domain.biz/charge-error-api
+        custom:
+          maxLength: 1073741824
+          type: string
+          description: >-
+            Éste campo puede ser utilizado para enviar información personalizada
+            sobre el cobro. Puede ser en formato texto o un documento codificado
+            en base64.
+          example: Contenido personalizado del cobro en formato texto o base64.
+        transaction_id:
+          maxLength: 255
+          type: string
+          description: >-
+            El identificador único del comercio para esta operación. Por
+            ejemplo, el número de factura.
+          example: INVOICE-23ffcfbe1e4a4d1c9dc631fe70bddaa0
+        notify_url:
+          maxLength: 1024
+          type: string
+          description: >-
+            URL que será llamada una vez que el proceso de cobro finalice y el
+            pago sea conciliado. Se enviará un POST con los parámetros que
+            permiten obtener los detalles del pago, utilizando el mismo flujo de
+            un pago normal. Consulte la
+            [documentación](https://www.khipu.com/api/#14-notificacion) para más
+            detalles.
+          example: https://my-domain.biz/charge-notify-api
+        notify_api_version:
+          maxLength: 255
+          type: string
+          description: >-
+            Version of the API used for the notification. This is useful to
+            ensure compatibility with future changes in the API.
+          example: '1.3'
+    ChargeResult:
+      type: object
+      description: >-
+        Objeto con el resultado de una solicitud de creación de intención de
+        cobro.
+      required:
+        - payment_id
+      properties:
+        payment_id:
+          maxLength: 12
+          type: string
+          description: >-
+            Identificador único del cobro. Representa el id de pago automático
+            que se usará para rastrear la solicitud de cobro a la cuenta del
+            cliente.
+          example: v67prof2ugg3

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "khipu-python-sdk"
+version = "0.1.0"
+description = "High-level Python SDK for Khipu Instant Payments (v3) and Automatic Payments (v1) APIs"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "httpx>=0.25",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-httpx>=0.30",
+  "ruff>=0.5",
+  "mypy>=1.8",
+  "types-requests>=2.31",
+  "openapi-python-client>=0.20",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["khipu_sdk*"]

@@ -1,0 +1,12 @@
+{
+  "instant_payments": {
+    "url": "https://docs.khipu.com/_bundle/apis/v3/instant-payments/openapi.yaml?download",
+    "sha256": "6b2da21beb04a2aada1f91080f887b75762effe76a958b13751979f896756177",
+    "downloaded_at": "2025-12-26"
+  },
+  "automatic_payments": {
+    "url": "https://docs.khipu.com/_bundle/apis/v1/automatic-payments/openapi.yaml?download",
+    "sha256": "8d8a5dc7a1a6996651376df9e4d862a4dbda717e439f59532afc01804c49e24b",
+    "downloaded_at": "2025-12-26"
+  }
+}
