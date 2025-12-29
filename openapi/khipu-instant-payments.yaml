@@ -1,0 +1,1200 @@
+openapi: 3.1.0
+info:
+  license:
+    name: API Pagos Instantáneos
+    url: https://khipu.com
+  title: API Pagos Instantáneos
+  description: >-
+    La API Instant Payment de Khipu (versión 3.0) permite a comerciantes
+    iniciar, consultar, confirmar,  reembolsar o eliminar pagos inmediatos
+    mediante transferencias bancarias en tiempo real.  Entre sus principales
+    funcionalidades se encuentran: obtener la lista de bancos disponibles  con
+    detalles como límites, tarifas y logos; crear un pago especificando un banco
+    o dejar que el  usuario elija; confirmar o solicitar el reembolso de un pago
+    mediante su ID; y predecir el estado  de un pago usando machine learning.
+    Esta API maneja autenticación mediante clave secreta en el  encabezado
+    x-api-key, no requiere firmas, y utiliza certificados SSL de validación
+    extendida para  asegurar la comunicación
+  version: v3.0
+  x-logo:
+    url: https://s3.amazonaws.com/static.khipu.com/2021/logo-transparent.png
+    altText: Logo de Khipu
+    href: https://khipu.com
+servers:
+  - url: https://payment-api.khipu.com
+    description: Producción
+security:
+  - Api-Key: []
+paths:
+  /v3/banks:
+    get:
+      operationId: getBanks
+      summary: Get banks
+      description: >-
+        Este método obtiene la lista de bancos que se pueden utilizar para pagar
+        en esta cuenta de cobro.
+      parameters: []
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con el conjunto de bancos
+            disponibles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bank-get-banks'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/payments/{id}/confirm:
+    post:
+      operationId: postPaymentConfirmById
+      summary: Confirm payment by Id
+      description: >
+        **Advertencia: Esta función sólo está disponible para los clientes que
+        la hayan contratado de forma independiente.
+
+        Para utilizarla, póngase en contacto con nosotros en
+        soporte@khipu.com**<br><br>
+
+        Confirmar el pago. Al confirmar el pago, este será rendido al día hábil
+
+        siguiente.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Identificador del pago
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/payments/{id}:
+    get:
+      operationId: getPaymentById
+      summary: Get payment by Id
+      description: >-
+        Información completa del pago. Datos con los que fue creado y el estado
+        actual del pago.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Identificador del pago
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con la información de
+            pago.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/payment-get-payment'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+    delete:
+      operationId: deletePaymentById
+      summary: Delete payment by Id
+      description: >-
+        Borrar un pago. Solo se pueden borrar pagos que estén pendientes de
+        pagar. Esta operación no puede deshacerse.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Identificador del pago
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/payments:
+    post:
+      operationId: postPayment
+      summary: Create payment
+      description: >-
+        Crea un pago en Khipu y obtiene las URLs para redirección al usuario
+        para que complete el pago.
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/payment-post-payment'
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con la información del
+            pago creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/payment-post-payment-2'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/payments/{id}/refunds:
+    post:
+      operationId: postPaymentRefundsById
+      summary: Refund payment by Id
+      description: >-
+        Reembolsa total o parcialmente el monto de un pago. Esta operación solo
+        se puede realizar en los comercios que recauden en cuenta Khipu y antes
+        de la rendición de los fondos correspondientes.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Identificador del pago
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/payment-post-payment-refunds'
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/predict:
+    get:
+      operationId: getPredict
+      summary: Get payment prediction
+      description: >-
+        Predicción acerca del resultado de un pago, si podrá o no funcionar.
+        Información adicional como máximo posible de transferir a un nuevo
+        destinatario.
+      parameters:
+        - in: query
+          name: payer_email
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Correo electrónico del pagador
+        - in: query
+          name: bank_id
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Identificador del banco de origen
+        - in: query
+          name: amount
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Monto del pago
+        - in: query
+          name: currency
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Moneda en formato ISO-4217
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con la predicción junto
+            con información adiciónal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/predict-get-predict'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/receivers:
+    post:
+      operationId: postReceiver
+      summary: Post receiver
+      description: >
+        **Advertencia: Esta función sólo está disponible para los clientes que
+        la hayan contratado de forma independiente.
+
+        Para utilizarla, póngase en contacto con nosotros en
+        soporte@khipu.com**<br><br>
+
+        Crear una nueva cuenta de cobro asociada a un integrador. Necesita datos
+
+        de la cuenta de usuario asociada, datos de facturación y datos de
+        contacto.
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/receiver-post-receiver'
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con el identificador y
+            secreto de la nueva cuenta de cobro.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/receiver-post-receiver-2'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/merchants/{id}/paymentMethods:
+    get:
+      operationId: getMerchantPaymentMethodsById
+      summary: Get payment methods
+      description: >-
+        Obtiene el listado de medios de pago disponible para una cuenta de
+        cobrador.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: number
+          description: Identificador de la cuenta de cobro
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con la variedad de
+            métodos de pago disponibles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/merchant-get-payment-methods'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+components:
+  securitySchemes:
+    Api-Key:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    bank-get-banks:
+      type: object
+      required:
+        - banks
+      properties:
+        banks:
+          type: array
+          minItems: 1
+          description: Arreglo con listado de bancos.
+          items:
+            type: object
+            description: Datos de banco.
+            required:
+              - bank_id
+              - name
+              - message
+              - min_amount
+              - type
+              - parent
+            properties:
+              bank_id:
+                type: string
+                description: Identificador del banco.
+                example: SDdGj
+              name:
+                type: string
+                description: Nombre del banco.
+                example: Banco Estado
+              message:
+                type: string
+                description: Mensaje con particularidades del banco.
+                example: >-
+                  Tarifa de $300 de transferencia a otros bancos, usando
+                  CuentaRUT.
+              min_amount:
+                type: number
+                format: double
+                description: Monto mínimo que acepta el banco en un pago.
+                example: 1000
+              type:
+                type: string
+                enum:
+                  - Persona
+                  - Empresa
+                description: Tipo de banco.
+                example: Persona
+              parent:
+                type: string
+                description: >-
+                  Identificador del banco padre (si un banco tiene banca
+                  personas y empresas, el primero será el padre del segundo).
+                example: ''
+              logo_url:
+                type: string
+                description: URL del logo del banco.
+                example: >-
+                  https://s3.amazonaws.com/static.khipu.com/logos/bancos/chile/estado-icon.png
+    success:
+      type: object
+      description: Objeto para respuestas exitosas de la API.
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Mensaje a desplegar al usuario.
+          example: Message.
+    payment-get-payment:
+      type: object
+      description: >-
+        Información completa del pago. Datos con los que fue creado y el estado
+        actual del pago.
+      required:
+        - payment_id
+        - payment_url
+        - simplified_transfer_url
+        - transfer_url
+        - app_url
+        - ready_for_terminal
+        - notification_token
+        - receiver_id
+        - conciliation_date
+        - subject
+        - amount
+        - currency
+        - status
+        - status_detail
+        - body
+        - picture_url
+        - receipt_url
+        - return_url
+        - cancel_url
+        - notify_url
+        - notify_api_version
+        - expires_date
+        - attachment_urls
+        - bank
+        - bank_id
+        - payer_name
+        - payer_email
+        - personal_identifier
+        - bank_account_number
+        - out_of_date_conciliation
+        - transaction_id
+        - custom
+        - responsible_user_email
+        - send_reminders
+        - send_email
+        - payment_method
+        - funds_source
+      properties:
+        payment_id:
+          type: string
+          description: >-
+            Identificador único del pago, es una cadena alfanumérica de 12
+            caracteres. Como este identificador es único, se puede usar, por
+            ejemplo, para evitar procesar una notificación repetida. (Khipu
+            espera un código 200 al notificar un pago, si esto no ocurre se
+            reintenta hasta por dos días).
+          example: gqzdy6chjne9
+        payment_url:
+          type: string
+          description: >-
+            URL principal del pago, si el usuario no ha elegido previamente un
+            método de pago se le muestran las opciones.
+          example: https://khipu.com/payment/info/gqzdy6chjne9
+        simplified_transfer_url:
+          type: string
+          description: URL de pago simplificado.
+          example: https://app.khipu.com/payment/simplified/gqzdy6chjne9
+        transfer_url:
+          type: string
+          description: URL de pago normal.
+          example: https://khipu.com/payment/manual/gqzdy6chjne9
+        app_url:
+          type: string
+          description: >-
+            URL para invocar el pago desde un dispositivo móvil usando la APP de
+            Khipu.
+          example: khipu:///pos/gqzdy6chjne9
+        ready_for_terminal:
+          type: boolean
+          description: >-
+            Es `true` si el pago ya cuenta con todos los datos necesarios para
+            abrir directamente la aplicación de pagos Khipu.
+          example: false
+        notification_token:
+          type: string
+          description: >-
+            Cadena de caracteres alfanuméricos que identifican unicamente al
+            pago, es el identificador que el servidor de Khipu enviará al
+            servidor del comercio cuando notifique que un pago está conciliado.
+          example: 9dec8aa176c5223026919b3b5579a4776923e646ff3be686b9e6b62ec042e91f
+        receiver_id:
+          type: integer
+          format: int64
+          description: Identificador único de una cuenta de cobro.
+          example: 985101
+        conciliation_date:
+          type: string
+          format: date-time
+          description: Fecha y hora de conciliación del pago. Formato ISO-8601.
+          example: '2017-03-01T13:00:00.000Z'
+        subject:
+          type: string
+          description: Motivo del pago.
+          example: Test
+        amount:
+          type: number
+          format: double
+          description: El monto del cobro.
+          example: 1000
+        currency:
+          type: string
+          description: El código de moneda en formato ISO-4217.
+          example: CLP
+        status:
+          type: string
+          enum:
+            - pending
+            - verifying
+            - done
+          description: >-
+            Estado del pago, puede ser `pending` (el pagador aún no comienza a
+            pagar), `verifying` (se está verificando el pago) o `done`, cuando
+            el pago ya está confirmado.
+          example: done
+        status_detail:
+          type: string
+          enum:
+            - pending
+            - normal
+            - marked-paid-by-receiver
+            - rejected-by-payer
+            - marked-as-abuse
+            - reversed
+          description: >-
+            Detalle del estado del pago:
+
+            `pending` (el pagador aún no comienza a pagar),
+
+            `normal` (el pago fue verificado y fue cancelado por algún medio de
+            pago estándar),
+
+            `marked-paid-by-receiver` (el cobrador marcó el cobro como pagado
+            por otro medio),
+
+            `rejected-by-payer` (el pagador declaró que no pagará),
+
+            `marked-as-abuse` (el pagador declaró que no pagará y que el cobro
+            fue no solicitado), y
+
+            `reversed` (el pago fue anulado por el comercio, el dinero fue
+            devuelto al pagador).
+          example: normal
+        body:
+          type: string
+          description: Detalle del cobro.
+          example: Test
+        picture_url:
+          type: string
+          description: URL con imagen del cobro.
+          example: https://micomercio.com/picture_url
+        receipt_url:
+          type: string
+          description: URL del comprobante de pago.
+          example: https://micomercio.com/order/receipt_url
+        return_url:
+          type: string
+          description: URL donde se redirige al pagador luego que termina el pago.
+          example: https://micomercio.com/order/return_url
+        cancel_url:
+          type: string
+          description: URL donde se redirige al pagador luego de que desiste hacer el pago.
+          example: https://micomercio.com/order/cancel_url
+        notify_url:
+          type: string
+          description: URL del webservice donde se notificará el pago.
+          example: https://micomercio.com/webhook/notify_url
+        notify_api_version:
+          type: string
+          description: Versión de la API de notificación.
+          example: '3.0'
+        expires_date:
+          type: string
+          format: date-time
+          description: >-
+            Fecha máxima para ejecutar el pago (en formato ISO-8601). El cliente
+            podrá realizar varios intentos de pago hasta dicha fecha. Cada
+            intento tiene un plazo individual de 3 horas para su ejecución.
+          example: '2023-12-31T15:45:00-04:00'
+        attachment_urls:
+          type: array
+          minItems: 0
+          description: Arreglo de URLs de archivos adjuntos al pago.
+          items:
+            type: string
+            description: URL de archivo adjunto al pago.
+            example: https://micomercio.com/attachment1.pdf
+        bank:
+          type: string
+          description: Nombre del banco seleccionado por el pagador.
+          example: Banco de Chile (Edwards Citi)
+        bank_id:
+          type: string
+          description: Identificador del banco seleccionado por el pagador.
+          example: dfFbF
+        payer_name:
+          type: string
+          description: Nombre del pagador.
+          example: Nombre Pagador
+        payer_email:
+          type: string
+          format: email
+          description: Correo electrónico del pagador.
+          example: pagador@email.com
+        personal_identifier:
+          type: string
+          description: Identificador personal del pagador.
+          example: 11.000.111-9
+        bank_account_number:
+          type: string
+          description: Número de cuenta bancaria del pagador.
+          example: '001120490689'
+        out_of_date_conciliation:
+          type: boolean
+          description: >-
+            Es `true` si la conciliación del pago fue hecha luego de la fecha de
+            expiración.
+          example: true
+        transaction_id:
+          type: string
+          description: Identificador del pago asignado por el cobrador.
+          example: zwo3wqz6uulcvajt
+        custom:
+          type: string
+          description: Campo genérico que asigna el cobrador al momento de hacer el pago.
+          example: <xml>...</xml>
+        responsible_user_email:
+          type: string
+          description: Correo electrónico de la persona responsable del pago.
+          example: responsible@email.com
+        send_reminders:
+          type: boolean
+          description: >-
+            Es `true` cuando este es un cobro por correo electrónico y Khipu
+            enviará recordatorios.
+          example: true
+        send_email:
+          type: boolean
+          description: Es `true` cuando Khipu enviará el cobro por correo electrónico.
+          example: true
+        payment_method:
+          type: string
+          enum:
+            - regular_transfer
+            - simplified_transfer
+            - not_available
+          description: >-
+            Método de pago usado por el pagador, puede ser `regular_transfer`
+            (transferencia normal) o `simplified_transfer` (transferencia
+            simplificada).
+          example: simplified_transfer
+        funds_source:
+          type: string
+          enum:
+            - debit
+            - prepaid
+            - credit
+            - not-available
+            - ''
+          description: >-
+            Origen de fondos usado por el pagador, puede ser `debit` para pago
+            con débito, `prepaid` para pago con prepago, `credit` para pago con
+            crédito, o vacío en el caso de que se haya pagado mediante
+            transferencia bancaria.
+          example: debit
+        discount:
+          type: number
+          format: double
+          description: Monto a descontar del valor pagado.
+          example: 0
+        third_party_authorization_details:
+          type: string
+          description: Ignorar este campo.
+    payment-post-payment:
+      type: object
+      description: >-
+        Crea un pago en Khipu y obtiene las URLs para redirección al usuario
+        para que complete el pago.
+      required:
+        - amount
+        - currency
+        - subject
+      properties:
+        amount:
+          type: number
+          format: double
+          description: >-
+            El monto del cobro. Sin separador de miles y usando '.' como
+            separador de decimales. Hasta 4 lugares decimales, dependiendo de la
+            moneda.
+          example: 1000
+        currency:
+          type: string
+          maxLength: 255
+          enum:
+            - CLP
+            - CLF
+            - ARS
+            - PEN
+            - MXN
+            - USD
+            - EUR
+            - BOB
+            - COP
+          description: El código de moneda en formato ISO-4217.
+          example: CLP
+        subject:
+          type: string
+          maxLength: 255
+          description: Motivo.
+          example: Cobro de prueba
+        transaction_id:
+          type: string
+          maxLength: 255
+          description: >-
+            Identificador propio de la transacción. Ej: número de factura u
+            orden de compra.
+          example: zwo3wqz6uulcvajt
+        custom:
+          type: string
+          maxLength: 1073741824
+          description: >-
+            Parámetro para enviar información personalizada de la transacción.
+            Ej: documento XML con el detalle del carro de compra.
+          example: <xml>...</xml>
+        body:
+          type: string
+          maxLength: 5120
+          description: Descripción del cobro.
+          example: 'Cobro de orden de compra #123-abcdef'
+        bank_id:
+          type: string
+          maxLength: 5
+          description: Identificador del banco para usar en el pago.
+          example: SDdGj
+        return_url:
+          type: string
+          maxLength: 1024
+          description: >-
+            La dirección URL a donde enviar al cliente mientras el pago está
+            siendo verificado.
+          example: https://micomercio.com/order/return_url
+        cancel_url:
+          type: string
+          maxLength: 1024
+          description: >-
+            La dirección URL a donde enviar al cliente si decide no hacer hacer
+            la transacción.
+          example: https://micomercio.com/order/cancel_url
+        picture_url:
+          type: string
+          maxLength: 1024
+          description: Una dirección URL de una foto de tu producto o servicio.
+          example: https://micomercio.com/picture_url
+        notify_url:
+          type: string
+          maxLength: 1024
+          description: >-
+            La dirección del web-service que utilizará khipu para notificar
+            cuando el pago esté conciliado.
+          example: https://micomercio.com/webhook/notify_url
+        contract_url:
+          type: string
+          maxLength: 1024
+          description: >-
+            La dirección URL del archivo PDF con el contrato a firmar mediante
+            este pago. El cobrador debe estar habilitado para este servicio y el
+            campo `fixed_payer_personal_identifier` es obligatorio.
+          example: https://micomercio.com/contract_url
+        notify_api_version:
+          type: string
+          maxLength: 255
+          description: >-
+            Versión de la API de notificaciones para recibir avisos por
+            web-service.
+          example: '3.0'
+        expires_date:
+          type: string
+          format: date-time
+          description: >-
+            Fecha máxima para ejecutar el pago (en formato ISO-8601). El cliente
+            podrá realizar varios intentos de pago hasta dicha fecha. Cada
+            intento tiene un plazo individual de 3 horas para su ejecución.
+          example: '2023-12-31T15:45:00-04:00'
+        send_email:
+          type: boolean
+          description: >-
+            Si es `true`, se enviará una solicitud de cobro al correo
+            especificado en `payer_email`.
+          example: false
+        payer_name:
+          type: string
+          maxLength: 255
+          description: Nombre del pagador. Es obligatorio cuando `send_email` es `true`.
+          example: Nombre Pagador
+        payer_email:
+          type: string
+          maxLength: 255
+          format: email
+          description: Correo del pagador. Es obligatorio cuando `send_email` es `true`.
+          example: pagador@email.com
+        send_reminders:
+          type: boolean
+          description: Si es `true`, se enviarán recordatorios de cobro.
+          example: true
+        responsible_user_email:
+          type: string
+          maxLength: 255
+          format: email
+          description: >-
+            Correo electrónico del responsable de este cobro, debe corresponder
+            a un usuario Khipu con permisos para cobrar usando esta cuenta de
+            cobro.
+          example: responsible@email.com
+        fixed_payer_personal_identifier:
+          type: string
+          maxLength: 255
+          description: >-
+            Identificador personal. Si se especifica, solo podrá ser pagado
+            usando ese identificador.
+          example: 11.000.111-9
+        integrator_fee:
+          type: string
+          maxLength: 16
+          description: >-
+            Comisión para el integrador. Sólo es válido si la cuenta de cobro
+            tiene una cuenta de integrador asociada.
+          example: '100'
+        collect_account_uuid:
+          type: string
+          maxLength: 255
+          description: >-
+            Para cuentas de cobro con más cuenta propia. Permite elegir la
+            cuenta donde debe ocurrir la transferencia.
+          example: '007367340234'
+        confirm_timeout_date:
+          type: string
+          format: date-time
+          description: >-
+            Fecha de rendición del cobro. Es también la fecha final para poder
+            reembolsar el cobro. Formato ISO-8601.
+          example: '2017-03-01T13:00:00Z'
+        mandatory_payment_method:
+          type: string
+          maxLength: 255
+          description: >-
+            El cobro sólo se podrá pagar utilizando el medio de pago
+            especificado. Los posibles valores para este campo se encuentran en
+            el campo `id` de la respuesta del endpoint
+            `/api/3.0/merchants/paymentMethods`.
+          example: simplified_transfer
+        psp_client_merchant_name:
+          type: string
+          minLength: 3
+          maxLength: 255
+          description: >-
+            Nombre del comercio final para quien un proveedor de servicios de
+            pago procesa un pago. Requerido para transacciones de clientes PSP;
+            no aplicable para otros. En caso de tratarse de un PSP de PSP, estos
+            deben ingresarse separados por '->'.
+          example: PSP 1->PSP 2->Client Name
+    payment-post-payment-2:
+      type: object
+      description: >-
+        Crea un pago en Khipu y obtiene las URLs para redirección al usuario
+        para que complete el pago.
+      required:
+        - payment_id
+        - payment_url
+        - simplified_transfer_url
+        - transfer_url
+        - app_url
+        - ready_for_terminal
+      properties:
+        payment_id:
+          type: string
+          description: >-
+            Identificador único del pago, es una cadena alfanumérica de 12
+            caracteres. Como este identificador es único, se puede usar, por
+            ejemplo, para evitar procesar una notificación repetida. (Khipu
+            espera un código 200 al notificar un pago, si esto no ocurre se
+            reintenta hasta por dos días).
+          example: gqzdy6chjne9
+        payment_url:
+          type: string
+          description: >-
+            URL principal del pago, si el usuario no ha elegido previamente un
+            método de pago se le muestran las opciones.
+          example: https://khipu.com/payment/info/gqzdy6chjne9
+        simplified_transfer_url:
+          type: string
+          description: URL de pago simplificado.
+          example: https://app.khipu.com/payment/simplified/gqzdy6chjne9
+        transfer_url:
+          type: string
+          description: URL de pago normal.
+          example: https://khipu.com/payment/manual/gqzdy6chjne9
+        app_url:
+          type: string
+          description: >-
+            URL para invocar el pago desde un dispositivo móvil usando la APP de
+            Khipu.
+          example: khipu:///pos/gqzdy6chjne9
+        ready_for_terminal:
+          type: boolean
+          description: >-
+            Es `true` si el pago ya cuenta con todos los datos necesarios para
+            abrir directamente la aplicación de pagos Khipu.
+          example: false
+    payment-post-payment-refunds:
+      type: object
+      description: >-
+        Reembolsa total o parcialmente el monto de un pago. Esta operación solo
+        se puede realizar en los comercios que recauden en cuenta Khipu y antes
+        de la rendición de los fondos correspondientes.
+      properties:
+        amount:
+          type: number
+          format: double
+          description: >-
+            El monto a devolver. Sin separador de miles y usando '.' como
+            separador de decimales. Hasta 4 lugares decimales, dependiendo de la
+            moneda. Si se omite el reembolso se hará por el total del monto del
+            pago.
+          example: 1000
+    predict-get-predict:
+      type: object
+      description: >-
+        Predicción acerca del resultado de un pago, si podrá o no funcionar.
+        Información adicional como máximo posible de transferir a un nuevo
+        destinatario.
+      required:
+        - new_destinatary_max_amount
+        - max_amount
+        - result
+        - cool_down_date
+      properties:
+        result:
+          type: string
+          description: El resultado de la predicción.
+          enum:
+            - ok
+            - new_destinatary_amount_exceeded
+            - max_amount_exceeded
+            - new_destinatary_cool_down
+            - not_available_account
+          example: ok
+        max_amount:
+          type: number
+          format: double
+          description: El monto máximo posible para transferir.
+          example: 5000000
+        cool_down_date:
+          type: string
+          description: Fecha de término para la restricción de monto en formato ISO-8601
+          example: '2024-06-21T11:23:09.123Z'
+        new_destinatary_max_amount:
+          type: number
+          format: double
+          description: Monto máximo para transferir a un nuevo destinatario.
+          example: 100000
+    receiver-post-receiver:
+      type: object
+      description: >-
+        Crear una nueva cuenta de cobro asociada a un integrador. Necesita datos
+        de la cuenta de usuario asociada, datos de facturación y datos de
+        contacto.
+      required:
+        - admin_first_name
+        - admin_last_name
+        - admin_email
+        - country_code
+        - business_identifier
+        - business_category
+        - business_name
+        - business_phone
+        - business_address_line_1
+        - business_address_line_2
+        - business_address_line_3
+        - contact_full_name
+        - contact_job_title
+        - contact_email
+        - contact_phone
+      properties:
+        admin_first_name:
+          type: string
+          maxLength: 255
+          description: Nombre de pila del administrador de la cuenta de cobro a crear.
+          example: Nombre
+        admin_last_name:
+          type: string
+          maxLength: 255
+          description: Apellido del administrador de la cuenta de cobro a crear.
+          example: Apellido
+        admin_email:
+          type: string
+          maxLength: 255
+          format: email
+          description: Correo electrónico del administrador de la cuenta de cobro a crear.
+          example: admin@email.com
+        country_code:
+          type: string
+          maxLength: 2
+          description: >-
+            Código alfanumérico de dos caracteres ISO 3166-1 del país de la
+            cuenta de cobro a crear.
+          example: CL
+        business_identifier:
+          type: string
+          minLength: 8
+          maxLength: 255
+          description: >-
+            Identificador tributario del cobrador asociado a la cuenta de cobro
+            a crear.
+          example: 99.999.999-9
+        business_category:
+          type: string
+          maxLength: 255
+          description: >-
+            Categoría tributaria o rubro tributario del cobrador asociado a la
+            cuenta de cobro a crear.
+          example: VENTA AL POR MAYOR DE FRUTAS Y VERDURAS
+        business_name:
+          type: string
+          maxLength: 255
+          description: >-
+            Nombre tributario del cobrador asociado a la cuenta de cobro a
+            crear.
+          example: Nombre Tributario
+        business_phone:
+          type: string
+          minLength: 5
+          maxLength: 20
+          description: Teléfono del cobrador asociado a la cuenta de cobro a crear.
+          example: '+56988887777'
+        business_address_line_1:
+          type: string
+          minLength: 4
+          maxLength: 300
+          description: Dirección del cobrador de la cuenta de cobro a crear.
+          example: Calle principal 1111
+        business_address_line_2:
+          type: string
+          minLength: 4
+          maxLength: 300
+          description: >-
+            Segunda línea de la dirección del cobrador de la cuenta de cobro a
+            crear.
+          example: Oficina 3-A
+        business_address_line_3:
+          type: string
+          minLength: 4
+          maxLength: 300
+          description: >-
+            Tercera línea de la dirección del cobrador de la cuenta de cobro a
+            crear.
+          example: Santiago
+        contact_full_name:
+          type: string
+          maxLength: 255
+          description: Nombre del contacto del cobrador.
+          example: Nombre Contacto
+        contact_job_title:
+          type: string
+          maxLength: 255
+          description: Cargo del contacto del cobrador.
+          example: Tesorero
+        contact_email:
+          type: string
+          maxLength: 255
+          format: email
+          description: Correo electrónico del contacto del cobrador.
+          example: contacto@email.com
+        contact_phone:
+          type: string
+          minLength: 5
+          maxLength: 20
+          description: Teléfono del contacto del cobrador.
+          example: '+56955553333'
+        bank_account_bank_id:
+          type: string
+          maxLength: 5
+          description: Identificador del banco.
+          example: SDdGj
+        bank_account_type:
+          type: string
+          maxLength: 255
+          description: >-
+            Tipo de cuenta. Es obligatorio si se utiliza el modelo alternativo
+            de integrador de confianza.
+          example: Cuenta Corriente
+        bank_account_identifier:
+          type: string
+          maxLength: 50
+          description: Identificador personal del dueño de la cuenta de banco.
+          example: 11.333.555-7
+        bank_account_name:
+          type: string
+          maxLength: 255
+          description: Nombre de la cuenta de banco.
+          example: Alias Cuenta
+        bank_account_number:
+          type: string
+          maxLength: 255
+          description: Número de la cuenta en el banco.
+          example: '00347909823'
+        notify_url:
+          type: string
+          maxLength: 1024
+          description: URL por omisión para el webservice donde se notificará el pago.
+          example: http://micomercio.com/account/notify_url
+        rendition_url:
+          type: string
+          maxLength: 1024
+          description: URL para el webservice donde se notificará la rendición.
+          example: http://micomercio.com/account/rendition_url
+    receiver-post-receiver-2:
+      type: object
+      description: Objeto para respuesta de creación de cuenta de cobro.
+      required:
+        - receiver_id
+        - secret
+      properties:
+        receiver_id:
+          type: string
+          description: Identificador único de la cuenta de cobro.
+          example: '934568'
+        secret:
+          type: string
+          description: >-
+            Llave secreta de la cuenta de cobro, se usa para firmar todas las
+            peticiones.
+          example: b2025dc47a29a04592fa3c1191110370db0e208c
+    merchant-get-payment-methods:
+      type: object
+      required:
+        - paymentMethods
+      properties:
+        paymentMethods:
+          type: array
+          minItems: 1
+          description: Arreglo con métodos de pago disponibles.
+          items:
+            type: object
+            description: Método de pago.
+            required:
+              - id
+              - name
+              - logo_url
+            properties:
+              id:
+                type: string
+                description: Identificador del medio de pago.
+                example: simplified_transfer
+              name:
+                type: string
+                description: Nombre del medio de pago.
+                example: simplified_transfer
+              logo_url:
+                type: string
+                description: URL del logo sugerido para mostrar.
+                example: >-
+                  https://s3.amazonaws.com/static.khipu.com/buttons/2015/150x50-transparent.png
