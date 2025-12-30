@@ -27,7 +27,3 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-
-# Generated OpenAPI clients (choose one strategy)
-# If you want to commit generated clients, comment the next line.
-generated/
