@@ -65,31 +65,31 @@ jobs:
       - name: Build release notes from CHANGELOG (best-effort)
         id: notes
         run: |
-          python - <<'PY'
-            from pathlib import Path
+          sed 's/^          //' <<'PY' | python3 -
+          from pathlib import Path
 
-            tag = "${{ steps.version.outputs.tag }}"
-            version = "${{ steps.version.outputs.version }}"
-            changelog = Path("CHANGELOG.md")
+          tag = "${{ steps.version.outputs.tag }}"
+          version = "${{ steps.version.outputs.version }}"
+          changelog = Path("CHANGELOG.md")
 
-            notes = None
-            if changelog.exists():
+          notes = None
+          if changelog.exists():
               text = changelog.read_text(encoding="utf-8")
               header = f"## [{version}]"
               start = text.find(header)
               if start != -1:
-                next_header = text.find("\n## [", start + len(header))
-                section = text[start:] if next_header == -1 else text[start:next_header]
-                notes = section.strip()
+                  next_header = text.find("\n## [", start + len(header))
+                  section = text[start:] if next_header == -1 else text[start:next_header]
+                  notes = section.strip()
 
-            if not notes:
+          if not notes:
               notes = (
-                f"Release {tag}\n\n"
-                "Notes:\n"
-                "- See CHANGELOG.md for details.\n"
+                  f"Release {tag}\n\n"
+                  "Notes:\n"
+                  "- See CHANGELOG.md for details.\n"
               )
 
-            Path("RELEASE_NOTES.md").write_text(notes + "\n", encoding="utf-8")
+          Path("RELEASE_NOTES.md").write_text(notes + "\n", encoding="utf-8")
           PY
 
       - name: Create GitHub Release
