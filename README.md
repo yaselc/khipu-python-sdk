@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-High-level Python SDK for integrating with **Khipu Instant Payments (v3)** and  
+High-level Python SDK for integrating with **Khipu Instant Payments (v3)** and
 **Khipu Automatic Payments / PAC (v1)**, built from official OpenAPI specifications.
 
 ---
@@ -95,10 +95,10 @@ official documentation site.
 
 Current sources:
 
-- Instant Payments (v3):  
+- Instant Payments (v3):
   https://docs.khipu.com/_bundle/apis/v3/instant-payments/openapi.yaml?download
 
-- Automatic Payments / PAC (v1):  
+- Automatic Payments / PAC (v1):
   https://docs.khipu.com/_bundle/apis/v1/automatic-payments/openapi.yaml?download
 
 The downloaded files are stored under the `openapi/` directory using stable,
@@ -155,11 +155,6 @@ In CI, the lock file is verified to ensure reproducible generation:
 ```bash
 make verify-spec-lock
 ```
-
-### Note about committing generated code
-
-By default, `.gitignore` ignores `generated/`. This is typically preferred for SDK repos.
-If you want to commit generated code, comment out the `generated/` entry in `.gitignore`.
 
 ## Configuration
 
@@ -277,7 +272,7 @@ pip install -e /path/to/khipu-python-sdk
 In your Django project's `requirements.txt`:
 
 ```text
-git+ssh://git@github.com/your-org/khipu-python-sdk.git@main#egg=khipu-python-sdk
+git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@master#egg=khipu-python-sdk
 ```
 
 Or in `pyproject.toml`:
@@ -285,7 +280,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk @ git+ssh://git@github.com/your-org/khipu-python-sdk.git@main",
+  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@master",
 ]
 ```
 
