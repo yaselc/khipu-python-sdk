@@ -5,7 +5,8 @@ from khipu_sdk.config import KhipuConfig
 from khipu_sdk.errors import KhipuApiError
 
 
-def test_requires_generated_clients_when_not_present():
+def test_requires_generated_clients_when_not_present(monkeypatch):
+    monkeypatch.setattr(KhipuClient, "_build_instant_client", lambda self: None)
     client = KhipuClient(KhipuConfig(api_key="x"))
     with pytest.raises(KhipuApiError) as exc:
         client.create_instant_payment(

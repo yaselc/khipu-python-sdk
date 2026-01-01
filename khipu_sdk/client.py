@@ -122,10 +122,10 @@ class KhipuClient:
             payload["notify_url"] = notify_url
 
         try:
-            from generated.instant_payments.api.payments import post_v3_payments  # type: ignore
+            from generated.instant_payments.api.default import post_payment  # type: ignore
             from generated.instant_payments.models.payment_post_payment import PaymentPostPayment  # type: ignore
 
-            result = post_v3_payments.sync_detailed(
+            result = post_payment.sync_detailed(
                 client=client,
                 body=PaymentPostPayment.from_dict(payload),
             )
@@ -157,9 +157,9 @@ class KhipuClient:
         client = self._require(self._instant, name="Instant Payments")
 
         try:
-            from generated.instant_payments.api.payments import get_v3_payments_id  # type: ignore
+            from generated.instant_payments.api.default import get_payment_by_id  # type: ignore
 
-            result = get_v3_payments_id.sync_detailed(
+            result = get_payment_by_id.sync_detailed(
                 id=payment_id,
                 client=client,
             )
@@ -218,10 +218,10 @@ class KhipuClient:
         }
 
         try:
-            from generated.automatic_payments.api.automatic_payment import post_v1_automatic_payment_subscription  # type: ignore
+            from generated.automatic_payments.api.default import create_subscription_1  # type: ignore
             from generated.automatic_payments.models.subscription_creation_request import SubscriptionCreationRequest  # type: ignore
 
-            result = post_v1_automatic_payment_subscription.sync_detailed(
+            result = create_subscription_1.sync_detailed(
                 client=client,
                 body=SubscriptionCreationRequest.from_dict(payload),
             )
@@ -252,9 +252,9 @@ class KhipuClient:
         client = self._require(self._automatic, name="Automatic Payments")
 
         try:
-            from generated.automatic_payments.api.automatic_payment import get_v1_automatic_payment_subscription_id  # type: ignore
+            from generated.automatic_payments.api.default import fetch_subscription_status_1  # type: ignore
 
-            result = get_v1_automatic_payment_subscription_id.sync_detailed(
+            result = fetch_subscription_status_1.sync_detailed(
                 id=subscription_id,
                 client=client,
             )
@@ -303,10 +303,10 @@ class KhipuClient:
         }
 
         try:
-            from generated.automatic_payments.api.automatic_payment import post_v1_automatic_payment_charge_intent  # type: ignore
+            from generated.automatic_payments.api.default import create_charge_1  # type: ignore
             from generated.automatic_payments.models.charge_request import ChargeRequest  # type: ignore
 
-            result = post_v1_automatic_payment_charge_intent.sync_detailed(
+            result = create_charge_1.sync_detailed(
                 client=client,
                 body=ChargeRequest.from_dict(payload),
             )
