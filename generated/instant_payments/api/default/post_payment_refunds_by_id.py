@@ -6,18 +6,13 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.payment_post_payment_refunds import PaymentPostPaymentRefunds
 from ...models.success import Success
-from ...types import UNSET, Response, Unset
+from ...types import Response
 
 
 def _get_kwargs(
     id: str,
-    *,
-    body: PaymentPostPaymentRefunds | Unset = UNSET,
 ) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
-
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/v3/payments/{id}/refunds".format(
@@ -25,12 +20,6 @@ def _get_kwargs(
         ),
     }
 
-    if not isinstance(body, Unset):
-        _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -83,18 +72,17 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: PaymentPostPaymentRefunds | Unset = UNSET,
 ) -> Response[Any | Success]:
     """Refund payment by Id
 
-     Reembolsa total o parcialmente el monto de un pago. Esta operación solo se puede realizar en los
-    comercios que recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
+     **Obsoleto:** este método fue reemplazado por [*Void payment by Id*](#operation/voidPaymentById)
+    (`POST /v3/payments/{id}/void`).
+
+    Reembolsa el monto total de un pago. Esta operación solo se puede realizar en los comercios que
+    recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
 
     Args:
         id (str):
-        body (PaymentPostPaymentRefunds | Unset): Reembolsa total o parcialmente el monto de un
-            pago. Esta operación solo se puede realizar en los comercios que recauden en cuenta Khipu
-            y antes de la rendición de los fondos correspondientes.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -106,7 +94,6 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
-        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -120,18 +107,17 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: PaymentPostPaymentRefunds | Unset = UNSET,
 ) -> Any | Success | None:
     """Refund payment by Id
 
-     Reembolsa total o parcialmente el monto de un pago. Esta operación solo se puede realizar en los
-    comercios que recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
+     **Obsoleto:** este método fue reemplazado por [*Void payment by Id*](#operation/voidPaymentById)
+    (`POST /v3/payments/{id}/void`).
+
+    Reembolsa el monto total de un pago. Esta operación solo se puede realizar en los comercios que
+    recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
 
     Args:
         id (str):
-        body (PaymentPostPaymentRefunds | Unset): Reembolsa total o parcialmente el monto de un
-            pago. Esta operación solo se puede realizar en los comercios que recauden en cuenta Khipu
-            y antes de la rendición de los fondos correspondientes.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -144,7 +130,6 @@ def sync(
     return sync_detailed(
         id=id,
         client=client,
-        body=body,
     ).parsed
 
 
@@ -152,18 +137,17 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: PaymentPostPaymentRefunds | Unset = UNSET,
 ) -> Response[Any | Success]:
     """Refund payment by Id
 
-     Reembolsa total o parcialmente el monto de un pago. Esta operación solo se puede realizar en los
-    comercios que recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
+     **Obsoleto:** este método fue reemplazado por [*Void payment by Id*](#operation/voidPaymentById)
+    (`POST /v3/payments/{id}/void`).
+
+    Reembolsa el monto total de un pago. Esta operación solo se puede realizar en los comercios que
+    recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
 
     Args:
         id (str):
-        body (PaymentPostPaymentRefunds | Unset): Reembolsa total o parcialmente el monto de un
-            pago. Esta operación solo se puede realizar en los comercios que recauden en cuenta Khipu
-            y antes de la rendición de los fondos correspondientes.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -175,7 +159,6 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
-        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -187,18 +170,17 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: PaymentPostPaymentRefunds | Unset = UNSET,
 ) -> Any | Success | None:
     """Refund payment by Id
 
-     Reembolsa total o parcialmente el monto de un pago. Esta operación solo se puede realizar en los
-    comercios que recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
+     **Obsoleto:** este método fue reemplazado por [*Void payment by Id*](#operation/voidPaymentById)
+    (`POST /v3/payments/{id}/void`).
+
+    Reembolsa el monto total de un pago. Esta operación solo se puede realizar en los comercios que
+    recauden en cuenta Khipu y antes de la rendición de los fondos correspondientes.
 
     Args:
         id (str):
-        body (PaymentPostPaymentRefunds | Unset): Reembolsa total o parcialmente el monto de un
-            pago. Esta operación solo se puede realizar en los comercios que recauden en cuenta Khipu
-            y antes de la rendición de los fondos correspondientes.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -212,6 +194,5 @@ async def asyncio(
         await asyncio_detailed(
             id=id,
             client=client,
-            body=body,
         )
     ).parsed

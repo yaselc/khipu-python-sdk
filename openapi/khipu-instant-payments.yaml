@@ -193,10 +193,15 @@ paths:
     post:
       operationId: postPaymentRefundsById
       summary: Refund payment by Id
+      deprecated: true
       description: >-
-        Reembolsa total o parcialmente el monto de un pago. Esta operación solo
-        se puede realizar en los comercios que recauden en cuenta Khipu y antes
-        de la rendición de los fondos correspondientes.
+        **Obsoleto:** este método fue reemplazado por [*Void payment by
+        Id*](#operation/voidPaymentById) (`POST /v3/payments/{id}/void`).
+
+
+        Reembolsa el monto total de un pago. Esta operación solo se puede
+        realizar en los comercios que recauden en cuenta Khipu y antes de la
+        rendición de los fondos correspondientes.
       parameters:
         - in: path
           name: id
@@ -205,11 +210,6 @@ paths:
             type: string
             maxLength: 255
           description: Identificador del pago
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/payment-post-payment-refunds'
       responses:
         '200':
           description: Operación exitosa.
@@ -227,6 +227,119 @@ paths:
           description: Not found - Recurso no disponible
         '500':
           description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/payments/{id}/void:
+    post:
+      operationId: voidPaymentById
+      summary: Void payment by Id
+      description: >-
+        Anula el monto total de un pago. Esta operación solo se puede realizar
+        en los comercios que recauden en cuenta Khipu y antes de la rendición de
+        los fondos correspondientes.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Identificador del pago
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/success'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/refunds:
+    post:
+      operationId: postRefund
+      summary: Refund payment
+      description: >-
+        Reversa total o parcial del monto de un pago. Con `type=full` el monto
+        completo reversable del pago queda marcado para devolución al pagador;
+        con `type=partial` queda marcada la parte indicada en `amount`. Se
+        pueden realizar varias reversas parciales mientras la billetera de
+        reversas tenga saldo y el pago mantenga monto reversable.
+
+
+        Esta operación requiere habilitación previa: el comercio debe
+        solicitarla a soporte@khipu.com. El comercio gestiona una billetera de
+        reversas que debe mantener con saldo suficiente (recargándola) para
+        concretar las reversas; el saldo se puede consultar con [*Get refund
+        wallet balance*](#operation/getRefundWalletBalance). Solo se pueden
+        reversar pagos conciliados, hasta 180 días después de su conciliación.
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/refund-post-refund'
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con el resultado de la
+            reversa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/refund-post-refund-2'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/refund-wallet/balance:
+    get:
+      operationId: getRefundWalletBalance
+      summary: Get refund wallet balance
+      description: >-
+        Obtiene el saldo disponible de la billetera de reversas del comercio.
+        Para que las reversas se concreten, la billetera debe mantener un saldo
+        mayor a las reversas del día; puede recargarse en el enlace indicado en
+        `add_funds_url`.
+
+
+        Esta operación requiere habilitación previa: el comercio debe
+        solicitarla a soporte@khipu.com.
+      parameters: []
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con el saldo de la
+            billetera de reversas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/refund-wallet-get-balance'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+        '503':
+          description: >-
+            Service unavailable - No fue posible obtener el saldo de la
+            billetera, intente más tarde
   /v3/predict:
     get:
       operationId: getPredict
@@ -313,6 +426,77 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/receiver-post-receiver-2'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/receivers/children:
+    get:
+      operationId: getReceivers
+      summary: Get receivers
+      description: >
+        **Advertencia: Esta función sólo está disponible para los clientes que
+        la hayan contratado de forma independiente.
+
+        Para utilizarla, póngase en contacto con nosotros en
+        soporte@khipu.com**<br><br>
+
+        Obtener la lista de cuentas de cobro asociadas a un integrador.
+      parameters:
+        - name: offset
+          in: query
+          required: false
+          description: Número de registros a saltar para paginación.
+          schema:
+            type: integer
+            default: 0
+            example: 0
+        - name: max
+          in: query
+          required: false
+          description: Cantidad máxima de registros a retornar.
+          schema:
+            type: integer
+            default: 100
+            example: 100
+        - name: sort
+          in: query
+          required: false
+          description: Campo por el cual ordenar los resultados.
+          schema:
+            type: string
+            enum:
+              - id
+              - name
+              - date_created
+            default: id
+            example: name
+        - name: order
+          in: query
+          required: false
+          description: Dirección del ordenamiento.
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+            example: asc
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con la lista de cuentas
+            de cobro asociadas al integrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/receiver-get-receivers'
         '400':
           description: Bad request - Solicitud mal formada
         '401':
@@ -531,10 +715,9 @@ components:
           description: Motivo del pago.
           example: Test
         amount:
-          type: number
-          format: double
+          type: string
           description: El monto del cobro.
-          example: 1000
+          example: '1000.0000'
         currency:
           type: string
           description: El código de moneda en formato ISO-4217.
@@ -559,6 +742,8 @@ components:
             - rejected-by-payer
             - marked-as-abuse
             - reversed
+            - partially-refunded
+            - fully-refunded
           description: >-
             Detalle del estado del pago:
 
@@ -573,10 +758,16 @@ components:
             `rejected-by-payer` (el pagador declaró que no pagará),
 
             `marked-as-abuse` (el pagador declaró que no pagará y que el cobro
-            fue no solicitado), y
+            fue no solicitado),
 
-            `reversed` (el pago fue anulado por el comercio, el dinero fue
-            devuelto al pagador).
+            `reversed` (el pago fue anulado por el comercio y el monto quedó
+            marcado para devolución al pagador),
+
+            `partially-refunded` (una parte del monto del pago quedó marcada
+            para devolución al pagador mediante reversas parciales), y
+
+            `fully-refunded` (el monto total del pago quedó marcado para
+            devolución al pagador mediante una o más reversas).
           example: normal
         body:
           type: string
@@ -657,6 +848,12 @@ components:
           type: string
           description: Identificador del pago asignado por el cobrador.
           example: zwo3wqz6uulcvajt
+        authorizer_operation_code:
+          type: string
+          description: >-
+            Identificador único de la transacción otorgado por el organismo
+            autorizador de la operación.
+          example: AUT-20240418-0001
         custom:
           type: string
           description: Campo genérico que asigna el cobrador al momento de hacer el pago.
@@ -701,10 +898,9 @@ components:
             transferencia bancaria.
           example: debit
         discount:
-          type: number
-          format: double
+          type: string
           description: Monto a descontar del valor pagado.
-          example: 0
+          example: '0.0000'
         third_party_authorization_details:
           type: string
           description: Ignorar este campo.
@@ -896,6 +1092,14 @@ components:
             no aplicable para otros. En caso de tratarse de un PSP de PSP, estos
             deben ingresarse separados por '->'.
           example: PSP 1->PSP 2->Client Name
+        psp_client_merchant_logo_url:
+          type: string
+          maxLength: 1024
+          description: >-
+            URL del logo del comercio final al que corresponde el pago procesado
+            por el proveedor de servicios de pago. Opcional para transacciones
+            de clientes PSP; no aplicable para otros.
+          example: https://micomercio.com/logo.png
     payment-post-payment-2:
       type: object
       description: >-
@@ -944,22 +1148,102 @@ components:
             Es `true` si el pago ya cuenta con todos los datos necesarios para
             abrir directamente la aplicación de pagos Khipu.
           example: false
-    payment-post-payment-refunds:
+    refund-post-refund:
       type: object
-      description: >-
-        Reembolsa total o parcialmente el monto de un pago. Esta operación solo
-        se puede realizar en los comercios que recauden en cuenta Khipu y antes
-        de la rendición de los fondos correspondientes.
+      description: Datos para reversar un pago.
+      required:
+        - type
+        - payment_id
       properties:
-        amount:
-          type: number
-          format: double
+        type:
+          type: string
+          enum:
+            - full
+            - partial
           description: >-
-            El monto a devolver. Sin separador de miles y usando '.' como
-            separador de decimales. Hasta 4 lugares decimales, dependiendo de la
-            moneda. Si se omite el reembolso se hará por el total del monto del
-            pago.
-          example: 1000
+            Tipo de reversa. `full` reversa el monto completo reversable del
+            pago; `partial` reversa el monto indicado en `amount`.
+          example: partial
+        payment_id:
+          type: string
+          maxLength: 255
+          description: Identificador del pago a reversar.
+          example: xsthgfkmvyvb
+        amount:
+          type: string
+          description: >-
+            El monto a reversar. Obligatorio cuando `type` es `partial`; no
+            puede ser utilizado cuando `type` es `full`. Sin separador de miles
+            y usando '.' como separador de decimales. Hasta el número de
+            decimales que admita la moneda. No puede superar el saldo reversable
+            del pago.
+          example: '1000'
+    refund-post-refund-2:
+      type: object
+      description: Resultado de la reversa.
+      required:
+        - id
+        - payment_id
+        - refunded_amount
+        - total_refunded
+        - remaining
+        - currency
+      properties:
+        id:
+          type: string
+          description: Identificador único de la reversa.
+          example: b31bd9aa-273b-4aed-9516-85866d47a931
+        payment_id:
+          type: string
+          description: Identificador del pago reversado.
+          example: xsthgfkmvyvb
+        refunded_amount:
+          type: string
+          description: >-
+            Monto reversado en esta operación. Sin separador de miles, usando
+            '.' como separador de decimales y siempre con 4 decimales.
+          example: '1000.0000'
+        total_refunded:
+          type: string
+          description: Monto total reversado del pago, sumando todas las reversas.
+          example: '1000.0000'
+        remaining:
+          type: string
+          description: Saldo del pago aún disponible para reversar.
+          example: '2000.0000'
+        currency:
+          type: string
+          description: Código de la moneda de los montos.
+          example: CLP
+        message:
+          type: string
+          description: >-
+            Mensaje informativo opcional sobre el estado de la billetera de
+            reversas; por ejemplo, cuando su saldo es insuficiente para
+            concretar las reversas del día.
+    refund-wallet-get-balance:
+      type: object
+      description: Saldo de la billetera de reversas.
+      required:
+        - balance
+        - currency
+        - add_funds_url
+      properties:
+        balance:
+          type: string
+          description: >-
+            Saldo disponible de la billetera de reversas. Sin separador de
+            miles, usando '.' como separador de decimales y siempre con 4
+            decimales.
+          example: '5000.0000'
+        currency:
+          type: string
+          description: Código de la moneda del saldo.
+          example: CLP
+        add_funds_url:
+          type: string
+          description: URL para recargar la billetera de reversas.
+          example: https://khipu.com/dashboard/bills
     predict-get-predict:
       type: object
       description: >-
@@ -1168,6 +1452,56 @@ components:
             Llave secreta de la cuenta de cobro, se usa para firmar todas las
             peticiones.
           example: b2025dc47a29a04592fa3c1191110370db0e208c
+        api_key:
+          type: string
+          description: API key de la cuenta de cobro creada.
+          example: d6ec59c7-e299-4704-840d-300442546982
+    receiver-get-receivers:
+      type: object
+      description: >-
+        Objeto para respuesta de listado de cuentas de cobro asociadas a un
+        integrador.
+      required:
+        - receivers
+        - total
+      properties:
+        total:
+          type: integer
+          description: Cantidad total de cuentas de cobro asociadas al integrador.
+          example: 150
+        receivers:
+          type: array
+          description: Lista de cuentas de cobro asociadas al integrador.
+          items:
+            type: object
+            required:
+              - id
+              - name
+              - date_created
+              - disabled
+              - can_collect
+            properties:
+              id:
+                type: integer
+                description: Identificador único de la cuenta de cobro.
+                example: 302026
+              name:
+                type: string
+                description: Nombre de la cuenta de cobro.
+                example: Cobrador 20260311115756
+              date_created:
+                type: string
+                format: date-time
+                description: Fecha de creación de la cuenta de cobro.
+                example: '2026-03-11T14:57:56Z'
+              disabled:
+                type: boolean
+                description: Indica si la cuenta de cobro está deshabilitada.
+                example: false
+              can_collect:
+                type: boolean
+                description: Indica si la cuenta de cobro puede recibir pagos.
+                example: true
     merchant-get-payment-methods:
       type: object
       required:
