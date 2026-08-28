@@ -83,6 +83,7 @@ jobs:
         run: |
           python - <<'PY'
           import glob
+          import pathlib
           import sys
           import zipfile
 
@@ -100,6 +101,19 @@ jobs:
           ):
               if required not in names:
                   problems.append(f"wheel is missing {required}")
+
+          # The wheel must mirror the source tree exactly. A stale build/lib can
+          # keep shipping a module that was deleted from generated/, which a
+          # presence-only check would never notice.
+          on_disk = {
+              str(path).replace("\\", "/")
+              for path in pathlib.Path("generated").rglob("*.py")
+          }
+          in_wheel = {n for n in names if n.startswith("generated/") and n.endswith(".py")}
+          for extra in sorted(in_wheel - on_disk):
+              problems.append(f"wheel ships {extra}, which is not in the source tree")
+          for missing in sorted(on_disk - in_wheel):
+              problems.append(f"wheel is missing {missing}")
 
           if problems:
               print("\n".join(problems))

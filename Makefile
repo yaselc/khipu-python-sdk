@@ -204,7 +204,11 @@ DIST_DIR := dist
 .PHONY: build
 build:
 	@echo "Building distribution..."
-	rm -rf $(DIST_DIR)
+	# build/ too, not just dist/: setuptools copies the wheel contents out of
+	# build/lib, so a module deleted from the source tree (for instance when a
+	# spec refresh removes a generated model) keeps being shipped until that
+	# directory is cleared.
+	rm -rf $(DIST_DIR) build
 	$(PYTHON) -m build --wheel --outdir $(DIST_DIR)
 	@echo "Wheel built in $(DIST_DIR)"
 
