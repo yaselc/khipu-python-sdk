@@ -435,6 +435,23 @@ make generate-all     # regenerate both clients
 `make generate-all` also recreates `generated/__init__.py`, which packaging
 depends on, so the file survives regeneration.
 
+CI verifies the lock against the **committed** specs, which is what makes
+generation reproducible. It deliberately does not download specs in the blocking
+path: `make download-specs` overwrites the committed files, so verifying
+afterwards would compare upstream against the pin rather than checking this
+repository, and any Khipu documentation edit would turn unrelated pull requests
+red. Upstream drift is watched by a separate non-blocking `spec-drift` job that
+reports the diff.
+
+Adopting a newer published spec is therefore a deliberate change:
+
+```bash
+make download-specs
+make lock-specs
+make generate-all
+make check          # review the generated diff and adjust the facade if needed
+```
+
 Never edit files under `generated/`. If behaviour needs to change, change the
 `khipu_sdk` facade.
 

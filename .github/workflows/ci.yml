@@ -5,6 +5,9 @@ on:
     branches: ["master"]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly upstream spec drift watch (see the spec-drift job).
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -33,11 +36,13 @@ jobs:
           python -m pip install -U pip
           pip install -e ".[dev]"
 
-      - name: Download OpenAPI specs
-        run: |
-          make download-specs
-
-      - name: Verify spec lock (sha256)
+      # No download here on purpose. `make download-specs` overwrites the
+      # committed specs with whatever docs.khipu.com serves today, so verifying
+      # the lock afterwards checks upstream against the pin instead of checking
+      # that this repository is internally reproducible -- and turns any Khipu
+      # documentation edit into a red build on unrelated PRs. Upstream drift is
+      # watched by the non-blocking `spec-drift` job below.
+      - name: Verify spec lock (sha256) against the committed specs
         run: |
           make verify-spec-lock
 
@@ -105,3 +110,34 @@ jobs:
       - name: Install the built wheel in a clean venv and smoke test it
         run: |
           make smoke-dist
+
+  spec-drift:
+    # Non-blocking watch on Khipu's published specs. Adopting a new spec is a
+    # deliberate change (re-download, `make lock-specs`, `make generate-all`,
+    # review the generated diff, adjust the facade if needed), so drift is
+    # reported here rather than blocking the build.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compare the published specs against the lock
+        run: |
+          make download-specs
+          if git diff --quiet -- openapi/; then
+            echo "Published specs are identical to the committed ones."
+          else
+            echo "::warning title=Khipu OpenAPI spec drift::docs.khipu.com now publishes specs that differ from the committed ones. Review before adopting."
+            echo "::group::Changes vs committed specs"
+            git diff --stat -- openapi/
+            git diff -- openapi/
+            echo "::endgroup::"
+          fi
+          make verify-spec-lock
