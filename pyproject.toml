@@ -24,7 +24,12 @@ dev = [
   "ruff>=0.5",
   "mypy>=1.8",
   "build>=1.0",
-  "openapi-python-client>=0.20",
+  # Pinned exactly, not with >= or ~=: the code generator is the build tool
+  # that produces the committed contents of generated/, so a floating version
+  # would let a generator release change that code without any change in this
+  # repository. Bumping it is a deliberate maintenance step: change the pin,
+  # run `make generate-all`, and review the resulting diff.
+  "openapi-python-client==0.28.0",
 ]
 
 [tool.setuptools]

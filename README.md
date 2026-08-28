@@ -452,6 +452,12 @@ make generate-all
 make check          # review the generated diff and adjust the facade if needed
 ```
 
+The code generator is pinned exactly (`openapi-python-client==0.28.0`) in the
+`dev` extra. It is the build tool that produces the committed contents of
+`generated/`, so a floating version would let a generator release change that
+code with no change in this repository. Bumping it is a deliberate step:
+change the pin, run `make generate-all`, and review the diff.
+
 Never edit files under `generated/`. If behaviour needs to change, change the
 `khipu_sdk` facade.
 
