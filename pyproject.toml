@@ -21,8 +21,14 @@ dependencies = [
 dev = [
   "pytest>=8.0",
   "pytest-httpx>=0.30",
-  "ruff>=0.5",
-  "mypy>=1.8",
+  # Pinned exactly for the same reason as the generator below: ruff and mypy
+  # decide whether CI passes, and their rule sets evolve by design, so a
+  # floating version changes the verdict on unchanged code. Without a pin,
+  # `make check` passes locally and fails in CI purely because the runner
+  # resolved a newer release. Bumping either is a deliberate step: change the
+  # pin and fix whatever the new rules report.
+  "ruff==0.14.10",
+  "mypy==1.19.1",
   "build>=1.0",
   # Pinned exactly, not with >= or ~=: the code generator is the build tool
   # that produces the committed contents of generated/, so a floating version
@@ -43,3 +49,10 @@ include = ["khipu_sdk*", "generated*"]
 
 [tool.setuptools.package-data]
 khipu_sdk = ["py.typed"]
+
+[tool.ruff]
+# `generated/` is machine-produced and must never be hand-edited (see the
+# regeneration workflow in the README), so linting it can only ever produce
+# findings nobody is allowed to act on. Excluding it keeps the build from being
+# gated on code this repository does not own.
+extend-exclude = ["generated"]

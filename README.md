@@ -517,6 +517,26 @@ The test suite performs no network access; HTTP is intercepted with
 `pytest-httpx` at the transport layer, so tests exercise the real path from the
 facade through serialization, httpx and generated response parsing.
 
+### Pinned tooling
+
+`ruff`, `mypy` and `openapi-python-client` are pinned exactly in the `dev`
+extra. All three decide what CI accepts, and all three change their verdict on
+unchanged code as they release: a linter adds rules, a type checker tightens
+inference, a generator emits different output. Left floating, `make check`
+passes locally and fails in CI purely because the runner resolved a newer
+version.
+
+`ruff` also skips `generated/` (see `[tool.ruff]`), because that code is
+machine-produced and must never be hand-edited, so findings there could only be
+silenced rather than fixed.
+
+Bumping any of the three is a deliberate maintenance step: change the pin, run
+`make check` (or `make generate-all` for the generator), and deal with whatever
+the new version reports. At the time of writing, moving to a current `ruff`
+would surface roughly 70 style findings in this repository's own code, mostly
+`Optional[X]` to `X | None` modernisation -- a migration worth doing on its own,
+not as a side effect of an unrelated build.
+
 The live integration test is **disabled by default**:
 
 ```bash
