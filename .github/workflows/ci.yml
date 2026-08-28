@@ -5,6 +5,9 @@ on:
     branches: ["master"]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly upstream spec drift watch (see the spec-drift job).
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -33,11 +36,13 @@ jobs:
           python -m pip install -U pip
           pip install -e ".[dev]"
 
-      - name: Download OpenAPI specs
-        run: |
-          make download-specs
-
-      - name: Verify spec lock (sha256)
+      # No download here on purpose. `make download-specs` overwrites the
+      # committed specs with whatever docs.khipu.com serves today, so verifying
+      # the lock afterwards checks upstream against the pin instead of checking
+      # that this repository is internally reproducible -- and turns any Khipu
+      # documentation edit into a red build on unrelated PRs. Upstream drift is
+      # watched by the non-blocking `spec-drift` job below.
+      - name: Verify spec lock (sha256) against the committed specs
         run: |
           make verify-spec-lock
 
@@ -48,3 +53,105 @@ jobs:
       - name: Check (lint + typecheck + tests)
         run: |
           make check
+
+  package:
+    # Regression guard for packaging: the `check` job regenerates the clients and
+    # tests the source tree, so it cannot detect a wheel that omits generated/.
+    # This job builds the distribution from the committed tree and exercises the
+    # facade from a clean install, with no network access to Khipu.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tooling
+        run: |
+          python -m pip install -U pip build
+
+      - name: Build wheel
+        run: |
+          make build
+
+      - name: Assert the wheel ships the generated clients and py.typed
+        run: |
+          python - <<'PY'
+          import glob
+          import pathlib
+          import sys
+          import zipfile
+
+          wheel = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(wheel).namelist()
+
+          problems = []
+          if not any(n.startswith("generated/") for n in names):
+              problems.append("wheel does not contain generated/")
+          for required in (
+              "generated/__init__.py",
+              "generated/instant_payments/api/default/post_payment.py",
+              "generated/instant_payments/models/payment_post_payment.py",
+              "khipu_sdk/py.typed",
+          ):
+              if required not in names:
+                  problems.append(f"wheel is missing {required}")
+
+          # The wheel must mirror the source tree exactly. A stale build/lib can
+          # keep shipping a module that was deleted from generated/, which a
+          # presence-only check would never notice.
+          on_disk = {
+              str(path).replace("\\", "/")
+              for path in pathlib.Path("generated").rglob("*.py")
+          }
+          in_wheel = {n for n in names if n.startswith("generated/") and n.endswith(".py")}
+          for extra in sorted(in_wheel - on_disk):
+              problems.append(f"wheel ships {extra}, which is not in the source tree")
+          for missing in sorted(on_disk - in_wheel):
+              problems.append(f"wheel is missing {missing}")
+
+          if problems:
+              print("\n".join(problems))
+              sys.exit(1)
+          print(f"OK: {wheel} contains {len(names)} files")
+          PY
+
+      - name: Install the built wheel in a clean venv and smoke test it
+        run: |
+          make smoke-dist
+
+  spec-drift:
+    # Non-blocking watch on Khipu's published specs. Adopting a new spec is a
+    # deliberate change (re-download, `make lock-specs`, `make generate-all`,
+    # review the generated diff, adjust the facade if needed), so drift is
+    # reported here rather than blocking the build.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compare the published specs against the lock
+        run: |
+          make download-specs
+          if git diff --quiet -- openapi/; then
+            echo "Published specs are identical to the committed ones."
+          else
+            echo "::warning title=Khipu OpenAPI spec drift::docs.khipu.com now publishes specs that differ from the committed ones. Review before adopting."
+            echo "::group::Changes vs committed specs"
+            git diff --stat -- openapi/
+            git diff -- openapi/
+            echo "::endgroup::"
+          fi
+          make verify-spec-lock

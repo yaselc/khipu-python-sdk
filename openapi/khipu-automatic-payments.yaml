@@ -355,8 +355,8 @@ components:
             pago sea conciliado. Se enviará un POST con los parámetros que
             permiten obtener los detalles del pago, utilizando el mismo flujo de
             un pago normal. Consulte la
-            [documentación](https://www.khipu.com/api/#14-notificacion) para más
-            detalles.
+            [documentación](https://docs.khipu.com/en/payment-solutions/instant-payments/payment-webhook)
+            para más detalles.
           example: https://my-domain.biz/charge-notify-api
         notify_api_version:
           maxLength: 255

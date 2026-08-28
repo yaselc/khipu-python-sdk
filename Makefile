@@ -50,6 +50,10 @@ help:
 	@echo "  make check                  Run lint, typecheck, and tests"
 	@echo "  make clean-generated        Remove generated clients"
 	@echo ""
+	@echo "Distribution:"
+	@echo "  make build                  Build the wheel"
+	@echo "  make smoke-dist             Install built wheel in a clean venv and smoke test it"
+	@echo ""
 
 
 # ------------------------------------------------------------
@@ -81,6 +85,23 @@ download-specs: download-instant download-automatic
 # OpenAPI client generation
 # ------------------------------------------------------------
 
+.PHONY: ensure-generated-package
+ensure-generated-package:
+	@mkdir -p $(GENERATED_DIR)
+	@printf '%s\n' \
+		'"""Namespace package for OpenAPI-generated Khipu clients.' \
+		'' \
+		'This file exists so that the generated clients are discovered by setuptools and' \
+		'shipped inside the built distribution. It is recreated deterministically by' \
+		'``make generate-all`` (see the ``ensure-generated-package`` target) so it' \
+		'survives regeneration.' \
+		'' \
+		'Do not add logic here. All hand-written code belongs in ``khipu_sdk``.' \
+		'"""' \
+		> $(GENERATED_DIR)/__init__.py
+	@echo "Ensured $(GENERATED_DIR)/__init__.py (required for packaging)"
+
+
 .PHONY: generate-instant
 generate-instant:
 	@echo "Generating Instant Payments client..."
@@ -108,7 +129,7 @@ generate-automatic:
 
 
 .PHONY: generate-all
-generate-all: generate-instant generate-automatic
+generate-all: generate-instant generate-automatic ensure-generated-package
 	@echo "All Khipu clients generated successfully"
 
 
@@ -172,3 +193,35 @@ lock-specs:
 verify-spec-lock:
 	@echo "Verifying OpenAPI specs against OPENAPI_SPECS.lock.json..."
 	$(PYTHON) tools/verify_spec_lock.py
+
+
+# ------------------------------------------------------------
+# Distribution build + clean-install smoke test
+# ------------------------------------------------------------
+
+DIST_DIR := dist
+
+.PHONY: build
+build:
+	@echo "Building distribution..."
+	# build/ too, not just dist/: setuptools copies the wheel contents out of
+	# build/lib, so a module deleted from the source tree (for instance when a
+	# spec refresh removes a generated model) keeps being shipped until that
+	# directory is cleared.
+	rm -rf $(DIST_DIR) build
+	$(PYTHON) -m build --wheel --outdir $(DIST_DIR)
+	@echo "Wheel built in $(DIST_DIR)"
+
+.PHONY: smoke-dist
+smoke-dist: build
+	@echo "Installing built wheel into a clean virtualenv and running smoke test..."
+	@set -eu; \
+	WHEEL="$$(ls $(DIST_DIR)/*.whl | head -1)"; \
+	WORK="$$(mktemp -d)"; \
+	trap 'rm -rf "$$WORK"' EXIT; \
+	$(PYTHON) -m venv "$$WORK/venv"; \
+	"$$WORK/venv/bin/python" -m pip install -q -U pip; \
+	"$$WORK/venv/bin/python" -m pip install -q "$$WHEEL"; \
+	cp tools/smoke_installed.py "$$WORK/smoke_installed.py"; \
+	cd "$$WORK" && "$$WORK/venv/bin/python" "$$WORK/smoke_installed.py"
+	@echo "Distribution smoke test passed"

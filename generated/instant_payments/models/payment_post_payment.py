@@ -68,6 +68,9 @@ class PaymentPostPayment:
         psp_client_merchant_name (str | Unset): Nombre del comercio final para quien un proveedor de servicios de pago
             procesa un pago. Requerido para transacciones de clientes PSP; no aplicable para otros. En caso de tratarse de
             un PSP de PSP, estos deben ingresarse separados por '->'. Example: PSP 1->PSP 2->Client Name.
+        psp_client_merchant_logo_url (str | Unset): URL del logo del comercio final al que corresponde el pago procesado
+            por el proveedor de servicios de pago. Opcional para transacciones de clientes PSP; no aplicable para otros.
+            Example: https://micomercio.com/logo.png.
     """
 
     amount: float
@@ -95,6 +98,7 @@ class PaymentPostPayment:
     confirm_timeout_date: datetime.datetime | Unset = UNSET
     mandatory_payment_method: str | Unset = UNSET
     psp_client_merchant_name: str | Unset = UNSET
+    psp_client_merchant_logo_url: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -152,6 +156,8 @@ class PaymentPostPayment:
 
         psp_client_merchant_name = self.psp_client_merchant_name
 
+        psp_client_merchant_logo_url = self.psp_client_merchant_logo_url
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -207,6 +213,8 @@ class PaymentPostPayment:
             field_dict["mandatory_payment_method"] = mandatory_payment_method
         if psp_client_merchant_name is not UNSET:
             field_dict["psp_client_merchant_name"] = psp_client_merchant_name
+        if psp_client_merchant_logo_url is not UNSET:
+            field_dict["psp_client_merchant_logo_url"] = psp_client_merchant_logo_url
 
         return field_dict
 
@@ -275,6 +283,8 @@ class PaymentPostPayment:
 
         psp_client_merchant_name = d.pop("psp_client_merchant_name", UNSET)
 
+        psp_client_merchant_logo_url = d.pop("psp_client_merchant_logo_url", UNSET)
+
         payment_post_payment = cls(
             amount=amount,
             currency=currency,
@@ -301,6 +311,7 @@ class PaymentPostPayment:
             confirm_timeout_date=confirm_timeout_date,
             mandatory_payment_method=mandatory_payment_method,
             psp_client_merchant_name=psp_client_merchant_name,
+            psp_client_merchant_logo_url=psp_client_merchant_logo_url,
         )
 
         payment_post_payment.additional_properties = d

@@ -4,22 +4,38 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "khipu-python-sdk"
-version = "0.1.2"
+version = "0.2.0"
 description = "High-level Python SDK for Khipu Instant Payments (v3) and Automatic Payments (v1) APIs"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+  # Used directly by khipu_sdk and by the generated clients.
   "httpx>=0.25",
+  # Required by the generated attrs models shipped under generated/.
+  "attrs>=23.1",
+  # Required by generated models that parse ISO-8601 timestamps (dateutil.parser.isoparse).
+  "python-dateutil>=2.8",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
   "pytest-httpx>=0.30",
-  "ruff>=0.5",
-  "mypy>=1.8",
-  "types-requests>=2.31",
-  "openapi-python-client>=0.20",
+  # Pinned exactly for the same reason as the generator below: ruff and mypy
+  # decide whether CI passes, and their rule sets evolve by design, so a
+  # floating version changes the verdict on unchanged code. Without a pin,
+  # `make check` passes locally and fails in CI purely because the runner
+  # resolved a newer release. Bumping either is a deliberate step: change the
+  # pin and fix whatever the new rules report.
+  "ruff==0.14.10",
+  "mypy==1.19.1",
+  "build>=1.0",
+  # Pinned exactly, not with >= or ~=: the code generator is the build tool
+  # that produces the committed contents of generated/, so a floating version
+  # would let a generator release change that code without any change in this
+  # repository. Bumping it is a deliberate maintenance step: change the pin,
+  # run `make generate-all`, and review the resulting diff.
+  "openapi-python-client==0.28.0",
 ]
 
 [tool.setuptools]
@@ -27,4 +43,16 @@ package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["khipu_sdk*"]
+# `generated*` MUST stay here: the SDK facade is non-functional without the
+# generated clients. See tools/smoke_installed.py for the regression guard.
+include = ["khipu_sdk*", "generated*"]
+
+[tool.setuptools.package-data]
+khipu_sdk = ["py.typed"]
+
+[tool.ruff]
+# `generated/` is machine-produced and must never be hand-edited (see the
+# regeneration workflow in the README), so linting it can only ever produce
+# findings nobody is allowed to act on. Excluding it keeps the build from being
+# gated on code this repository does not own.
+extend-exclude = ["generated"]

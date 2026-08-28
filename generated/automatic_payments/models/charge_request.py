@@ -39,8 +39,8 @@ class ChargeRequest:
             factura. Example: INVOICE-23ffcfbe1e4a4d1c9dc631fe70bddaa0.
         notify_url (str): URL que será llamada una vez que el proceso de cobro finalice y el pago sea conciliado. Se
             enviará un POST con los parámetros que permiten obtener los detalles del pago, utilizando el mismo flujo de un
-            pago normal. Consulte la [documentación](https://www.khipu.com/api/#14-notificacion) para más detalles. Example:
-            https://my-domain.biz/charge-notify-api.
+            pago normal. Consulte la [documentación](https://docs.khipu.com/en/payment-solutions/instant-payments/payment-
+            webhook) para más detalles. Example: https://my-domain.biz/charge-notify-api.
         notify_api_version (str | Unset): Version of the API used for the notification. This is useful to ensure
             compatibility with future changes in the API. Example: 1.3.
     """

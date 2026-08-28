@@ -42,7 +42,7 @@ class PaymentGetPayment:
         conciliation_date (datetime.datetime): Fecha y hora de conciliación del pago. Formato ISO-8601. Example:
             2017-03-01T13:00:00.000Z.
         subject (str): Motivo del pago. Example: Test.
-        amount (float): El monto del cobro. Example: 1000.
+        amount (str): El monto del cobro. Example: 1000.0000.
         currency (str): El código de moneda en formato ISO-4217. Example: CLP.
         status (PaymentGetPaymentStatus): Estado del pago, puede ser `pending` (el pagador aún no comienza a pagar),
             `verifying` (se está verificando el pago) o `done`, cuando el pago ya está confirmado. Example: done.
@@ -51,8 +51,12 @@ class PaymentGetPayment:
             `normal` (el pago fue verificado y fue cancelado por algún medio de pago estándar),
             `marked-paid-by-receiver` (el cobrador marcó el cobro como pagado por otro medio),
             `rejected-by-payer` (el pagador declaró que no pagará),
-            `marked-as-abuse` (el pagador declaró que no pagará y que el cobro fue no solicitado), y
-            `reversed` (el pago fue anulado por el comercio, el dinero fue devuelto al pagador). Example: normal.
+            `marked-as-abuse` (el pagador declaró que no pagará y que el cobro fue no solicitado),
+            `reversed` (el pago fue anulado por el comercio y el monto quedó marcado para devolución al pagador),
+            `partially-refunded` (una parte del monto del pago quedó marcada para devolución al pagador mediante reversas
+            parciales), y
+            `fully-refunded` (el monto total del pago quedó marcado para devolución al pagador mediante una o más reversas).
+            Example: normal.
         body (str): Detalle del cobro. Example: Test.
         picture_url (str): URL con imagen del cobro. Example: https://micomercio.com/picture_url.
         receipt_url (str): URL del comprobante de pago. Example: https://micomercio.com/order/receipt_url.
@@ -88,7 +92,9 @@ class PaymentGetPayment:
         funds_source (PaymentGetPaymentFundsSource): Origen de fondos usado por el pagador, puede ser `debit` para pago
             con débito, `prepaid` para pago con prepago, `credit` para pago con crédito, o vacío en el caso de que se haya
             pagado mediante transferencia bancaria. Example: debit.
-        discount (float | Unset): Monto a descontar del valor pagado.
+        authorizer_operation_code (str | Unset): Identificador único de la transacción otorgado por el organismo
+            autorizador de la operación. Example: AUT-20240418-0001.
+        discount (str | Unset): Monto a descontar del valor pagado. Example: 0.0000.
         third_party_authorization_details (str | Unset): Ignorar este campo.
     """
 
@@ -102,7 +108,7 @@ class PaymentGetPayment:
     receiver_id: int
     conciliation_date: datetime.datetime
     subject: str
-    amount: float
+    amount: str
     currency: str
     status: PaymentGetPaymentStatus
     status_detail: PaymentGetPaymentStatusDetail
@@ -129,7 +135,8 @@ class PaymentGetPayment:
     send_email: bool
     payment_method: PaymentGetPaymentPaymentMethod
     funds_source: PaymentGetPaymentFundsSource
-    discount: float | Unset = UNSET
+    authorizer_operation_code: str | Unset = UNSET
+    discount: str | Unset = UNSET
     third_party_authorization_details: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -208,6 +215,8 @@ class PaymentGetPayment:
 
         funds_source = self.funds_source.value
 
+        authorizer_operation_code = self.authorizer_operation_code
+
         discount = self.discount
 
         third_party_authorization_details = self.third_party_authorization_details
@@ -255,6 +264,8 @@ class PaymentGetPayment:
                 "funds_source": funds_source,
             }
         )
+        if authorizer_operation_code is not UNSET:
+            field_dict["authorizer_operation_code"] = authorizer_operation_code
         if discount is not UNSET:
             field_dict["discount"] = discount
         if third_party_authorization_details is not UNSET:
@@ -341,6 +352,8 @@ class PaymentGetPayment:
 
         funds_source = PaymentGetPaymentFundsSource(d.pop("funds_source"))
 
+        authorizer_operation_code = d.pop("authorizer_operation_code", UNSET)
+
         discount = d.pop("discount", UNSET)
 
         third_party_authorization_details = d.pop(
@@ -385,6 +398,7 @@ class PaymentGetPayment:
             send_email=send_email,
             payment_method=payment_method,
             funds_source=funds_source,
+            authorizer_operation_code=authorizer_operation_code,
             discount=discount,
             third_party_authorization_details=third_party_authorization_details,
         )

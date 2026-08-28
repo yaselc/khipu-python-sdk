@@ -20,6 +20,11 @@ coverage.xml
 venv/
 env/
 
+# Local secrets (never commit Khipu credentials)
+.env
+.env.*
+!.env.example
+
 # IDEs
 .idea/
 .vscode/
