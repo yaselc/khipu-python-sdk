@@ -336,8 +336,8 @@ never need to touch `raw`:
 | `transaction_id` | `Optional[str]` |
 | `custom` | `Optional[str]` |
 | `status` | `Optional[str]` — `pending`, `verifying`, `done` |
-| `status_detail` | `Optional[str]` — `pending`, `normal`, `marked-paid-by-receiver`, `rejected-by-payer`, `marked-as-abuse`, `reversed` |
-| `amount` | `Optional[Decimal]` |
+| `status_detail` | `Optional[str]` — see the table below |
+| `amount` | `Optional[Decimal]` — Khipu publishes it as a decimal string; the facade converts |
 | `currency` | `Optional[str]` |
 | `receiver_id` | `Optional[int]` |
 | `notification_token` | `Optional[str]` |
@@ -349,10 +349,39 @@ never need to touch `raw`:
 `raw` is kept out of `repr` on purpose: the underlying Khipu model carries payer
 PII (name, email, personal identifier, bank account number).
 
-> `status == "done"` is **not** sufficient to recognise money. `status == "done"`
-> together with `status_detail == "reversed"` means the payment was reversed and
-> the money returned to the payer. The SDK surfaces the fact; the policy is
-> yours.
+#### `status_detail` vocabulary
+
+The values Khipu currently publishes, with its own semantics:
+
+| Value | Khipu's meaning |
+|---|---|
+| `pending` | the payer has not started paying |
+| `normal` | the payment was verified and settled through a standard payment method |
+| `marked-paid-by-receiver` | the collector marked the charge as paid by other means |
+| `rejected-by-payer` | the payer declared they will not pay |
+| `marked-as-abuse` | the payer declared they will not pay and that the charge was unsolicited |
+| `reversed` | the payment was voided by the merchant and the amount was **marked for return** to the payer |
+| `partially-refunded` | part of the amount was **marked for return** to the payer through partial reversals |
+| `fully-refunded` | the full amount was **marked for return** to the payer through one or more reversals |
+
+Two points of precision:
+
+- Khipu's wording for the last three is *marked for return* to the payer, not
+  *returned*. Whether the money has actually moved back is a settlement
+  question, and the SDK does not answer it.
+- **`status == "done"` is not final forever.** A payment that reads `done` /
+  `normal` today can later read `done` / `partially-refunded` or
+  `done` / `fully-refunded`, because a payment can be reversed after it
+  settles. Treating `done` as a terminal state is unsafe.
+
+`status == "done"` alone is therefore not sufficient to recognise money. The SDK
+reports provider state verbatim and makes no business decision about it:
+deciding what a refund or reversal means for your own records is the consuming
+application's job.
+
+This vocabulary is Khipu's and can grow. The facade passes `status_detail`
+through as a plain string rather than an SDK enum, so a value Khipu adds later
+reaches you unchanged instead of raising.
 
 ### Automatic Payments (PAC)
 
@@ -399,6 +428,18 @@ so pass `currency` if you want minor-unit validation applied to `amount`.
 
 Authentication is a single static API key sent as the `x-api-key` header on
 every request. Khipu API v3 uses no request signing.
+
+The generated clients under `generated/` cover more of Khipu's surface than the
+facade deliberately exposes: cancelling a payment, `POST /v3/payments/{id}/void`,
+`POST /v3/refunds`, `GET /v3/refund-wallet/balance`, `GET /v3/banks`,
+`GET /v3/merchants/{id}/paymentMethods`, `GET /v3/predict`, and the receiver
+endpoints. They are regenerated and kept in sync, but are not part of the
+supported API and may change shape when the specs are refreshed. Promoting any
+of them onto `KhipuClient` is a deliberate decision, not something to do because
+the generated code exists.
+
+Note that Khipu marks `POST /v3/payments/{id}/refunds` as obsolete in favour of
+`POST /v3/payments/{id}/void`, and that it now refunds the full amount only.
 
 ## Out of scope
 

@@ -89,6 +89,32 @@ taxonomy and to the result dataclasses.
 - Removed the vestigial `types-requests` dev dependency (`requests` is unused);
   added `build`.
 
+### Upstream API
+
+- Adopted the Khipu OpenAPI specifications as published on 2026-08-28, replacing
+  the 2025-12-26 snapshot, and refreshed `OPENAPI_SPECS.lock.json` and the
+  generated clients accordingly.
+- **Instant Payments.** `payment-get-payment.amount` and `.discount` changed from
+  `number` to `string` upstream; the facade continues to expose
+  `InstantPaymentStatus.amount` as `Optional[Decimal]` and accepts either
+  representation. `status_detail` gained `partially-refunded` and
+  `fully-refunded`, surfaced verbatim as plain strings. New optional fields
+  `authorizer_operation_code` (response) and `psp_client_merchant_logo_url`
+  (request). `POST /v3/payments/{id}/refunds` is now marked obsolete, takes no
+  body and refunds the full amount only; `POST /v3/payments/{id}/void`,
+  `POST /v3/refunds`, `GET /v3/refund-wallet/balance` and
+  `GET /v3/receivers/children` are new. The receiver creation response now also
+  returns an `api_key`.
+- **Automatic Payments.** Documentation-URL change only; no schema change and no
+  effect on `create_charge`.
+- The new refund, void and receiver operations are generated but deliberately
+  **not** exposed on `KhipuClient`. The facade stays small; promoting an
+  operation is a separate decision.
+- Pinned `openapi-python-client==0.28.0` exactly. The generator produces the
+  committed contents of `generated/`, so a floating version could change that
+  code with no change in this repository. Regeneration from the committed specs
+  is byte-identical.
+
 ### Notes
 
 Unchanged by design, because Khipu does not provide them:

@@ -51,7 +51,8 @@ def get_response(**overrides: object) -> dict:
         "receiver_id": 985101,
         "conciliation_date": "2026-03-01T13:00:00.000Z",
         "subject": "Aporte",
-        "amount": 10000,
+        # Khipu publishes amount as a decimal string (spec example: "1000.0000").
+        "amount": "10000",
         "currency": "CLP",
         "status": "done",
         "status_detail": "normal",
@@ -234,21 +235,6 @@ class TestPaymentRetrieval:
         assert isinstance(payment.conciliation_date, dt.datetime)
         assert payment.expires_date.year == 2026
 
-    def test_amount_is_a_decimal_not_a_float(self, client, httpx_mock):
-        httpx_mock.add_response(url=f"{PAYMENTS_URL}/{PAYMENT_ID}", json=get_response())
-        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
-
-        assert isinstance(payment.amount, Decimal)
-
-    def test_fractional_amount_round_trips_without_binary_float_noise(self, client, httpx_mock):
-        httpx_mock.add_response(
-            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
-            json=get_response(amount=0.1, currency="USD"),
-        )
-        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
-
-        assert payment.amount == Decimal("0.1")
-
     @pytest.mark.parametrize("status", ["pending", "verifying", "done"])
     def test_exposes_the_real_khipu_status_values_as_plain_strings(
         self, client, httpx_mock, status
@@ -286,6 +272,126 @@ class TestPaymentRetrieval:
         text = repr(payment)
         assert "11.000.111-9" not in text
         assert "001120490689" not in text
+
+
+class TestAmountRepresentation:
+    """The published spec types payment amounts as strings; the facade must keep
+    exposing Decimal regardless of how the JSON encodes the number."""
+
+    def test_string_amount_becomes_decimal(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}", json=get_response(amount="10000")
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.amount == Decimal("10000")
+        assert isinstance(payment.amount, Decimal)
+
+    def test_string_amount_in_the_specs_four_decimal_form(self, client, httpx_mock):
+        """The spec's own example is "1000.0000"."""
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}", json=get_response(amount="10000.0000")
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.amount == Decimal("10000")
+
+    def test_fractional_string_amount_keeps_full_precision(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
+            json=get_response(amount="0.1000", currency="USD"),
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.amount == Decimal("0.1")
+
+    def test_numeric_amount_still_supported_for_compatibility(self, client, httpx_mock):
+        """Older responses encoded amount as a JSON number; keep accepting them."""
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}", json=get_response(amount=10000)
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.amount == Decimal("10000")
+
+    def test_fractional_numeric_amount_avoids_binary_float_noise(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
+            json=get_response(amount=0.1, currency="USD"),
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.amount == Decimal("0.1")
+
+    def test_amount_is_never_exposed_as_float_or_str(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}", json=get_response(amount="10000.0000")
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert not isinstance(payment.amount, (float, str))
+
+
+class TestRefundStatusDetail:
+    """Khipu's published status_detail vocabulary now includes refund states.
+
+    The SDK surfaces them verbatim and makes no business decision about them.
+    """
+
+    @pytest.mark.parametrize(
+        "status_detail",
+        [
+            "pending",
+            "normal",
+            "marked-paid-by-receiver",
+            "rejected-by-payer",
+            "marked-as-abuse",
+            "reversed",
+            "partially-refunded",
+            "fully-refunded",
+        ],
+    )
+    def test_every_published_status_detail_reaches_the_facade_as_a_string(
+        self, client, httpx_mock, status_detail
+    ):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
+            json=get_response(status_detail=status_detail),
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.status_detail == status_detail
+        assert type(payment.status_detail) is str
+
+    def test_partially_refunded_is_surfaced_alongside_done(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
+            json=get_response(status="done", status_detail="partially-refunded"),
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.status == "done"
+        assert payment.status_detail == "partially-refunded"
+
+    def test_fully_refunded_is_surfaced_alongside_done(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
+            json=get_response(status="done", status_detail="fully-refunded"),
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        assert payment.status == "done"
+        assert payment.status_detail == "fully-refunded"
+
+    def test_refund_states_need_no_raw_access(self, client, httpx_mock):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
+            json=get_response(status="done", status_detail="fully-refunded"),
+        )
+        payment = client.get_instant_payment(payment_id=PAYMENT_ID)
+
+        promoted = (payment.status, payment.status_detail, payment.amount, payment.transaction_id)
+        assert all(v is not None for v in promoted)
 
 
 class TestCorrelation:
