@@ -19,10 +19,13 @@ class SubscriptionCreationRequest:
         name (str): Nombre para identificar la suscripción. Example: Service XYZ Id 11.222.333-0.
         email (str): El correo electrónico del cliente que se suscribe al servicio. Example: personal.email@gmail.com.
         max_amount (float): Monto máximo que se puede cobrar mensualmente al cliente. Example: 1000.
+        max_amount_per_charge (float): Monto máximo que se puede cobrar en un solo cobro. No puede exceder el monto
+            máximo mensual (`max_amount`). Example: 250.
         currency (str): El código de moneda en el estándar ISO 4217. Example: CLP.
         notify_url (str): La URL que se llamará cuando el cliente complete el proceso de firma con el banco. Se enviará
-            un mensaje JSON a través de POST con la información de la suscripción con la siguiente estructura (`status`
-            puede ser __"enabled"__ o __"disabled"__): ```json
+            un mensaje JSON a través de POST con la información de la suscripción con la siguiente estructura. El campo
+            `status` es __"enabled"__ cuando la firma se completó y la suscripción queda habilitada para cobros, y
+            __"discarded"__ cuando la suscripción fue dada de baja: ```json
               {
                 "subscription_id": string,
                 "status": "enabled"
@@ -44,6 +47,7 @@ class SubscriptionCreationRequest:
     name: str
     email: str
     max_amount: float
+    max_amount_per_charge: float
     currency: str
     notify_url: str
     return_url: str
@@ -59,6 +63,8 @@ class SubscriptionCreationRequest:
         email = self.email
 
         max_amount = self.max_amount
+
+        max_amount_per_charge = self.max_amount_per_charge
 
         currency = self.currency
 
@@ -81,6 +87,7 @@ class SubscriptionCreationRequest:
                 "name": name,
                 "email": email,
                 "max_amount": max_amount,
+                "max_amount_per_charge": max_amount_per_charge,
                 "currency": currency,
                 "notify_url": notify_url,
                 "return_url": return_url,
@@ -105,6 +112,8 @@ class SubscriptionCreationRequest:
 
         max_amount = d.pop("max_amount")
 
+        max_amount_per_charge = d.pop("max_amount_per_charge")
+
         currency = d.pop("currency")
 
         notify_url = d.pop("notify_url")
@@ -123,6 +132,7 @@ class SubscriptionCreationRequest:
             name=name,
             email=email,
             max_amount=max_amount,
+            max_amount_per_charge=max_amount_per_charge,
             currency=currency,
             notify_url=notify_url,
             return_url=return_url,

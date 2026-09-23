@@ -6,7 +6,7 @@
   },
   "automatic_payments": {
     "url": "https://docs.khipu.com/_bundle/apis/v1/automatic-payments/openapi.yaml?download",
-    "sha256": "ab4e2c25faa5d96d1dc072bb83c5fd7cdc7b02857d7fd5dcfb7fc3970086e070",
-    "downloaded_at": "2026-08-28"
+    "sha256": "274d1091c53f4553e9040ca68a023239940994d7455293ecc948c61a9d886731",
+    "downloaded_at": "2026-09-22"
   }
 }

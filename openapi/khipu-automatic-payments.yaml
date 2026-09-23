@@ -88,6 +88,42 @@ paths:
           description: No encontrado - Recurso no disponible
         '500':
           description: Error en el servicio remoto :(
+    delete:
+      summary: Baja de la Suscripción
+      description: >-
+        Éste método da de baja una suscripción de pago automático. La
+        suscripción deja de aceptar cobros nuevos; los cobros ya reservados
+        pueden completarse, porque alguno puede estar siendo procesado por el
+        banco. La baja no se puede revertir: para volver a operar hay que crear
+        una suscripción nueva. Se avisa a la `notify_url` de la suscripción con
+        `status` __"discarded"__.
+      operationId: unsubscribeSubscription_1
+      parameters:
+        - name: id
+          in: path
+          description: Identificador único de la suscripción a dar de baja.
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Retorna un objeto JSON con la información de la
+            suscripción dada de baja. Dar de baja una suscripción que ya lo
+            estaba retorna la misma respuesta, sin volver a avisar.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionStatus'
+        '400':
+          description: Solicitud incorrecta
+        '401':
+          description: No autorizado - Credenciales inválidas o faltantes
+        '404':
+          description: No encontrado - Recurso no disponible
+        '500':
+          description: Error en el servicio remoto :(
   /v1/automatic-payment/charge-intent:
     post:
       summary: Creación de intención de cobro
@@ -103,7 +139,7 @@ paths:
               $ref: '#/components/schemas/ChargeRequest'
         required: true
       responses:
-        '200':
+        '201':
           description: >-
             Operación exitosa. Retorna un objeto JSON con el id del intento de
             cargo que puede ser usado para rastrear la solicitud de un cargo.
@@ -114,9 +150,15 @@ paths:
         '400':
           description: Solicitud incorrecta
         '401':
-          description: No autorizado - Credenciales inválidas o faltantes
-        '404':
-          description: No encontrado - Recurso no disponible
+          description: No autorizado - Suscripción no habilitada para cobros
+        '403':
+          description: Prohibido - Credenciales inválidas
+        '422':
+          description: Cobro rechazado - Retorna un objeto JSON con el motivo del rechazo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChargeError'
         '500':
           description: Error en el servicio remoto :(
 security:
@@ -135,6 +177,7 @@ components:
         - name
         - email
         - max_amount
+        - max_amount_per_charge
         - currency
         - notify_url
         - return_url
@@ -155,6 +198,13 @@ components:
           type: number
           description: Monto máximo que se puede cobrar mensualmente al cliente.
           example: 1000
+        max_amount_per_charge:
+          maxLength: 255
+          type: number
+          description: >-
+            Monto máximo que se puede cobrar en un solo cobro. No puede exceder
+            el monto máximo mensual (`max_amount`).
+          example: 250
         currency:
           maxLength: 4
           type: string
@@ -166,8 +216,10 @@ components:
           description: >-
             La URL que se llamará cuando el cliente complete el proceso de firma
             con el banco. Se enviará un mensaje JSON a través de POST con la
-            información de la suscripción con la siguiente estructura (`status`
-            puede ser __"enabled"__ o __"disabled"__): ```json
+            información de la suscripción con la siguiente estructura. El campo
+            `status` es __"enabled"__ cuando la firma se completó y la
+            suscripción queda habilitada para cobros, y __"discarded"__ cuando
+            la suscripción fue dada de baja: ```json
               {
                 "subscription_id": string,
                 "status": "enabled"
@@ -238,7 +290,6 @@ components:
         - subscription_id
         - status
         - developer
-        - customer_bank_code
         - service_reference
       properties:
         subscription_id:
@@ -249,12 +300,16 @@ components:
         status:
           type: string
           enum:
+            - PENDING
             - DISABLED
             - SIGNED
             - ENABLED
+            - DISCARDED
           description: >-
             El estado actual de la suscripción. Un intento de cobro solo se
-            puede realizar si el estado es `ENABLED`.
+            puede realizar si el estado es `ENABLED`. `PENDING` indica que el
+            cliente todavía no ha firmado con su banco, y `DISCARDED` que la
+            suscripción fue dada de baja.
           example: SIGNED
         developer:
           type: boolean
@@ -262,18 +317,12 @@ components:
             Indica si la suscripción fue creada usando el entorno de pruebas. Un
             valor `false` significa que es una suscripción de producción.
           example: false
-        customer_bank_code:
-          maxLength: 255
-          type: string
-          description: >-
-            El banco utilizado por el cliente para firmar la suscripción. Los
-            valores posibles son los utilizados en la API de Pagos de Khipu, o
-            `no-bank` si la suscripción no ha sido firmada.
-          example: '8'
         service_reference:
           maxLength: 255
           type: string
-          description: El alias utilizado para identificar la suscripción.
+          description: >-
+            El alias utilizado para identificar la suscripción. Viene vacío
+            mientras el cliente no haya firmado con su banco.
           example: Nombre de mi comercio
     ChargeRequest:
       type: object
@@ -284,10 +333,7 @@ components:
         - subscription_id
         - amount
         - subject
-        - body
         - error_response_url
-        - custom
-        - transaction_id
         - notify_url
       properties:
         subscription_id:
@@ -328,6 +374,7 @@ components:
               {
                 "subscription_id": string,
                 "transaction_id": string,
+                "payment_id": string,
                 "error_message": string
               }
             ```
@@ -381,3 +428,25 @@ components:
             que se usará para rastrear la solicitud de cobro a la cuenta del
             cliente.
           example: v67prof2ugg3
+    ChargeError:
+      type: object
+      description: Objeto con el motivo del rechazo de una intención de cobro.
+      required:
+        - error_code
+        - error_message
+      properties:
+        error_code:
+          maxLength: 255
+          type: string
+          description: >-
+            Código del motivo del rechazo. Los valores posibles son
+            `MAX_AMOUNT_PER_CHARGE_EXCEEDED`, `MAX_MONTHLY_AMOUNT_EXCEEDED`,
+            `SUBSCRIPTION_NOT_CHARGEABLE`, `CURRENCY_MISMATCH`,
+            `INVALID_AMOUNT`, `IDEMPOTENCY_KEY_REUSED`, `INVALID_PAYLOAD` y
+            `MERCHANT_ID_NOT_RESOLVED`.
+          example: MAX_AMOUNT_PER_CHARGE_EXCEEDED
+        error_message:
+          maxLength: 255
+          type: string
+          description: Descripción del motivo del rechazo.
+          example: amount exceeds the maximum allowed per charge for this subscription
