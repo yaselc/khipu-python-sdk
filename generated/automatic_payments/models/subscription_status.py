@@ -18,18 +18,17 @@ class SubscriptionStatus:
     Attributes:
         subscription_id (str): Identificador único de la suscripción. Example: 13a0f1aa-5e47-4894-aa8b-282dd19593ec.
         status (SubscriptionStatusStatus): El estado actual de la suscripción. Un intento de cobro solo se puede
-            realizar si el estado es `ENABLED`. Example: SIGNED.
+            realizar si el estado es `ENABLED`. `PENDING` indica que el cliente todavía no ha firmado con su banco, y
+            `DISCARDED` que la suscripción fue dada de baja. Example: SIGNED.
         developer (bool): Indica si la suscripción fue creada usando el entorno de pruebas. Un valor `false` significa
             que es una suscripción de producción.
-        customer_bank_code (str): El banco utilizado por el cliente para firmar la suscripción. Los valores posibles son
-            los utilizados en la API de Pagos de Khipu, o `no-bank` si la suscripción no ha sido firmada. Example: 8.
-        service_reference (str): El alias utilizado para identificar la suscripción. Example: Nombre de mi comercio.
+        service_reference (str): El alias utilizado para identificar la suscripción. Viene vacío mientras el cliente no
+            haya firmado con su banco. Example: Nombre de mi comercio.
     """
 
     subscription_id: str
     status: SubscriptionStatusStatus
     developer: bool
-    customer_bank_code: str
     service_reference: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -40,8 +39,6 @@ class SubscriptionStatus:
 
         developer = self.developer
 
-        customer_bank_code = self.customer_bank_code
-
         service_reference = self.service_reference
 
         field_dict: dict[str, Any] = {}
@@ -51,7 +48,6 @@ class SubscriptionStatus:
                 "subscription_id": subscription_id,
                 "status": status,
                 "developer": developer,
-                "customer_bank_code": customer_bank_code,
                 "service_reference": service_reference,
             }
         )
@@ -67,15 +63,12 @@ class SubscriptionStatus:
 
         developer = d.pop("developer")
 
-        customer_bank_code = d.pop("customer_bank_code")
-
         service_reference = d.pop("service_reference")
 
         subscription_status = cls(
             subscription_id=subscription_id,
             status=status,
             developer=developer,
-            customer_bank_code=customer_bank_code,
             service_reference=service_reference,
         )
 

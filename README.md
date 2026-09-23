@@ -83,7 +83,7 @@ plain Git install is fully functional.
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.2.0
+khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.0
 ```
 
 Or in `pyproject.toml`:
@@ -91,7 +91,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.2.0",
+  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.0",
 ]
 ```
 
@@ -361,18 +361,48 @@ The values Khipu currently publishes, with its own semantics:
 | `rejected-by-payer` | the payer declared they will not pay |
 | `marked-as-abuse` | the payer declared they will not pay and that the charge was unsolicited |
 | `reversed` | the payment was voided by the merchant and the amount was **marked for return** to the payer |
-| `partially-refunded` | part of the amount was **marked for return** to the payer through partial reversals |
-| `fully-refunded` | the full amount was **marked for return** to the payer through one or more reversals |
+| `partially-refunded` | part of the amount was **marked for return** to the payer through partial refunds |
+| `fully-refunded` | the full amount was **marked for return** to the payer through one or more refunds |
 
 Two points of precision:
 
 - Khipu's wording for the last three is *marked for return* to the payer, not
-  *returned*. Whether the money has actually moved back is a settlement
-  question, and the SDK does not answer it.
+  *returned*. `status_detail` does not tell you the money moved.
 - **`status == "done"` is not final forever.** A payment that reads `done` /
   `normal` today can later read `done` / `partially-refunded` or
   `done` / `fully-refunded`, because a payment can be reversed after it
   settles. Treating `done` as a terminal state is unsafe.
+
+#### Whether a refund actually paid out
+
+Khipu's 2026-09 revision added three optional fields to the payment body that
+answer the settlement question `status_detail` cannot:
+
+| Field | Meaning |
+|---|---|
+| `refunds[]` | each refund on the payment, with `status` of `pending`, `authorized`, `paid` or `expired`, plus `request_date` / `authorization_date` / `payout_date` / `expiration_date` |
+| `total_refunded` | total returned to the payer. **Expired refunds are not counted.** |
+| `void_payout_date` | when a voided payment's funds actually reached the payer |
+
+A refund that reads `expired` was never confirmed within 15 business days and
+will not be paid. So a payment can read `status_detail: partially-refunded`
+while some of that amount never left — which is exactly why
+`total_refunded` and `refunds[].status` exist.
+
+These three are **optional**, and the facade does not promote them onto
+`InstantPaymentStatus` yet: `refunds` is a list of objects and deserves a
+stable result type rather than leaking generated models. Read them through
+`raw` for now:
+
+```python
+status = client.get_instant_payment(payment_id=payment_id)
+
+# Khipu omits these fields entirely when a payment has no refunds, so the
+# generated model reports them as UNSET rather than as a value.
+refunds = getattr(status.raw, "refunds", None)
+if isinstance(refunds, list):
+    paid_out = [r for r in refunds if r.status.value == "paid"]
+```
 
 `status == "done"` alone is therefore not sufficient to recognise money. The SDK
 reports provider state verbatim and makes no business decision about it:
@@ -389,7 +419,8 @@ reaches you unchanged instead of raising.
 subscription = client.create_subscription(
     name="Jane Doe",
     email="jane.doe@example.com",
-    max_amount=Decimal("50000"),
+    max_amount=Decimal("50000"),          # monthly cap
+    max_amount_per_charge=Decimal("20000"),  # per-charge cap; required by Khipu
     currency="CLP",
     notify_url="https://your-app.example.com/pac/notify/",
     return_url="https://your-app.example.com/pac/return/",
@@ -402,12 +433,13 @@ charge = client.create_charge(
     subscription_id=subscription.subscription_id,
     amount=Decimal("20000"),
     subject="Monthly fee",
-    body="Subscription monthly charge",
-    transaction_id="INVOICE-2026-0001",
     # Required by Khipu's ChargeRequest schema:
     error_response_url="https://your-app.example.com/pac/error/",
-    custom="INVOICE-2026-0001",
     notify_url="https://your-app.example.com/pac/notify/",
+    # Optional in Khipu's schema; omitted fields are left out of the request:
+    body="Subscription monthly charge",
+    transaction_id="INVOICE-2026-0001",
+    custom="INVOICE-2026-0001",
     # Optional, local validation only; never sent to Khipu:
     currency="CLP",
 )
@@ -415,6 +447,80 @@ charge = client.create_charge(
 
 The charge payload carries no currency — it is inherited from the subscription —
 so pass `currency` if you want minor-unit validation applied to `amount`.
+
+`body`, `custom` and `transaction_id` are optional because Khipu's schema makes
+them optional. Omitting one leaves the field out of the request entirely: the
+SDK never sends `null` and never invents a value. They are still the only
+merchant-side fields Khipu echoes back, so if you reconcile charges against your
+own records, require them in **your** service layer — that is your policy to
+enforce, not one the SDK imposes on every consumer.
+
+`transaction_id` is **not** an idempotency key. Khipu's `ChargeError` vocabulary
+mentions `IDEMPOTENCY_KEY_REUSED`, but the published `ChargeRequest` defines no
+idempotency field or header, so the SDK sends none and treats no field as one.
+The no-retry policy described above is unchanged.
+
+#### Subscription ids are opaque
+
+`subscription_id` is an **opaque provider string**. Khipu's schema example shows
+a UUID, but the live API issues short mixed-case alphanumeric tokens such as
+`7Kp2R9xTmQ4b`. The SDK imposes no syntax on it, and neither should you: store
+it as text, and never validate, normalise or parse it as a UUID.
+
+#### Subscription lifecycle
+
+`get_subscription` returns Khipu's own `status` as a plain string:
+
+| `status` | Meaning |
+|---|---|
+| `PENDING` | Created; the customer has not signed the bank mandate yet. |
+| `SIGNED` | The mandate was signed. |
+| `ENABLED` | The mandate is active. **Only this state permits a charge.** |
+| `DISABLED` | The mandate is not usable. |
+| `DISCARDED` | The subscription was unsubscribed. Not reversible. |
+
+```python
+status = client.get_subscription(subscription_id=subscription.subscription_id)
+
+if status.status == "ENABLED":
+    ...  # safe to charge
+```
+
+Two things to know about this endpoint:
+
+- **`service_reference` comes back empty until the customer signs.** Khipu
+  returns `""`, not `null` and not a missing key. The SDK passes that through
+  unchanged: `""` is a value Khipu sent, and is never rewritten to `None`.
+- **Khipu's `notify_url` callback is not authoritative.** The POST Khipu sends
+  when the customer signs — or when a subscription is unsubscribed — carries
+  `subscription_id` and a lowercase `status` (`"enabled"` / `"discarded"`),
+  with no signature, no token and no provider-authenticated field. Anyone can
+  send it. Treat it as a hint to call `get_subscription`, which is
+  authenticated, and decide on that result.
+
+#### Charge rejections
+
+`create_charge` succeeds on Khipu's documented `201 Created`, and also on a
+`200` carrying a usable `ChargeResult` — the contract Khipu published until
+2026-09, kept for compatibility. That allowance is exactly those two statuses:
+any other `2xx`, `202 Accepted` above all, raises `KhipuResponseError` rather
+than being read as a created charge.
+
+A refused charge comes back as `422` with Khipu's own reason, raised as
+`KhipuApiError`:
+
+```python
+try:
+    charge = client.create_charge(...)
+except KhipuApiError as exc:
+    if exc.status_code == 422:
+        code = exc.payload["error_code"]  # e.g. MAX_AMOUNT_PER_CHARGE_EXCEEDED
+```
+
+Khipu documents `MAX_AMOUNT_PER_CHARGE_EXCEEDED`, `MAX_MONTHLY_AMOUNT_EXCEEDED`,
+`SUBSCRIPTION_NOT_CHARGEABLE`, `CURRENCY_MISMATCH`, `INVALID_AMOUNT`,
+`IDEMPOTENCY_KEY_REUSED`, `INVALID_PAYLOAD` and `MERCHANT_ID_NOT_RESOLVED`.
+`exc.message` carries Khipu's `error_message` text.
 
 ## Implemented operations
 
@@ -430,7 +536,9 @@ Authentication is a single static API key sent as the `x-api-key` header on
 every request. Khipu API v3 uses no request signing.
 
 The generated clients under `generated/` cover more of Khipu's surface than the
-facade deliberately exposes: cancelling a payment, `POST /v3/payments/{id}/void`,
+facade deliberately exposes: unsubscribing a PAC subscription
+(`DELETE /v1/automatic-payment/subscription/{id}`, an irreversible operation),
+cancelling a payment, `POST /v3/payments/{id}/void`,
 `POST /v3/refunds`, `GET /v3/refund-wallet/balance`, `GET /v3/banks`,
 `GET /v3/merchants/{id}/paymentMethods`, `GET /v3/predict`, and the receiver
 endpoints. They are regenerated and kept in sync, but are not part of the

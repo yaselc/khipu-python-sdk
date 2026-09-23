@@ -11,13 +11,13 @@ T = TypeVar("T", bound="RefundWalletGetBalance")
 
 @_attrs_define
 class RefundWalletGetBalance:
-    """Saldo de la billetera de reversas.
+    """Saldo de la billetera de devoluciones.
 
     Attributes:
-        balance (str): Saldo disponible de la billetera de reversas. Sin separador de miles, usando '.' como separador
-            de decimales y siempre con 4 decimales. Example: 5000.0000.
+        balance (str): Saldo disponible de la billetera de devoluciones. Sin separador de miles, usando '.' como
+            separador de decimales y siempre con 4 decimales. Example: 5000.0000.
         currency (str): Código de la moneda del saldo. Example: CLP.
-        add_funds_url (str): URL para recargar la billetera de reversas. Example: https://khipu.com/dashboard/bills.
+        add_funds_url (str): URL para recargar la billetera de devoluciones. Example: https://khipu.com/dashboard/bills.
     """
 
     balance: str

@@ -580,3 +580,180 @@ class TestMalformedResponses:
             create(client)
 
         assert getattr(exc.value, "status_code", None) != 500
+
+
+REFUND_PAID = {
+    "id": "b31bd9aa-273b-4aed-9516-85866d47a931",
+    "status": "paid",
+    "amount": "600.0000",
+    "currency": "CLP",
+    "request_date": "2026-08-28T14:03:22.000Z",
+    "authorization_date": "2026-08-28T14:05:12.000Z",
+    "payout_date": "2026-09-01T09:30:00.000Z",
+}
+REFUND_EXPIRED = {
+    "id": "9f2e7c55-4d18-4b6a-b7e3-8c0d1a2f3b4c",
+    "status": "expired",
+    "amount": "150.0000",
+    "currency": "CLP",
+    "request_date": "2026-08-28T14:03:22.000Z",
+    "expiration_date": "2026-08-31T03:00:00.000Z",
+}
+
+
+class TestRefundSettlementFields:
+    """Khipu's 2026-09 Instant Payments revision adds three optional fields.
+
+    ``refunds``, ``total_refunded`` and ``void_payout_date`` are **additive and
+    optional**: no required field changed, and the ``status`` / ``status_detail``
+    vocabularies are byte-identical to the previous document. They refine *when
+    money actually moved* -- an expired refund never pays out, and
+    ``total_refunded`` excludes those -- which the ``status_detail`` vocabulary
+    alone cannot express.
+
+    The facade deliberately does not promote them yet: that is an API-design
+    decision, not a spec-sync one. These tests pin that they parse, that
+    absence is fine, and that they are reachable, so promoting them later is a
+    small step rather than a rediscovery.
+    """
+
+    def get(self, client, httpx_mock, **overrides):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}", json=get_response(**overrides)
+        )
+        return client.get_instant_payment(payment_id=PAYMENT_ID)
+
+    def test_a_body_carrying_the_new_fields_parses(self, client, httpx_mock):
+        status = self.get(
+            client,
+            httpx_mock,
+            status_detail="partially-refunded",
+            refunds=[REFUND_PAID, REFUND_EXPIRED],
+            total_refunded="600.0000",
+        )
+
+        assert status.status == "done"
+        assert status.status_detail == "partially-refunded"
+
+    def test_a_body_without_them_still_parses(self, client, httpx_mock):
+        """They are optional: the previous document's bodies remain valid."""
+        status = self.get(client, httpx_mock)
+
+        assert status.status_detail == "normal"
+        assert type(status.raw.refunds).__name__ == "Unset"
+        assert type(status.raw.total_refunded).__name__ == "Unset"
+        assert type(status.raw.void_payout_date).__name__ == "Unset"
+
+    def test_promoted_fields_are_unaffected_by_the_new_ones(self, client, httpx_mock):
+        """The spec sync must not disturb anything a caller already relies on."""
+        status = self.get(
+            client,
+            httpx_mock,
+            refunds=[REFUND_PAID],
+            total_refunded="600.0000",
+        )
+
+        assert status.payment_id == PAYMENT_ID
+        assert status.transaction_id == "CONTRIB-9f2c"
+        assert status.custom == "CONTRIB-9f2c-custom"
+        assert status.amount == Decimal("10000")
+        assert status.currency == "CLP"
+        assert status.receiver_id == 985101
+        assert status.notification_token.startswith("9dec8aa1")
+        assert status.out_of_date_conciliation is False
+
+    @pytest.mark.parametrize(
+        "refund_status", ["pending", "authorized", "paid", "expired"]
+    )
+    def test_every_published_refund_status_parses(
+        self, client, httpx_mock, refund_status
+    ):
+        status = self.get(
+            client,
+            httpx_mock,
+            refunds=[{**REFUND_PAID, "status": refund_status}],
+        )
+
+        assert status.raw.refunds[0].status.value == refund_status
+
+    def test_refund_detail_is_reachable_through_raw(self, client, httpx_mock):
+        status = self.get(
+            client, httpx_mock, refunds=[REFUND_PAID, REFUND_EXPIRED]
+        )
+
+        paid, expired = status.raw.refunds
+        assert paid.id == REFUND_PAID["id"]
+        assert paid.payout_date == dt.datetime(
+            2026, 9, 1, 9, 30, tzinfo=dt.timezone.utc
+        )
+        assert type(expired.payout_date).__name__ == "Unset", (
+            "an expired refund never paid out; absence must not read as a date"
+        )
+        assert expired.expiration_date == dt.datetime(
+            2026, 8, 31, 3, 0, tzinfo=dt.timezone.utc
+        )
+
+    def test_total_refunded_is_reported_verbatim_and_never_recomputed(
+        self, client, httpx_mock
+    ):
+        """Khipu excludes expired refunds from this total. The SDK does not sum."""
+        status = self.get(
+            client,
+            httpx_mock,
+            refunds=[REFUND_PAID, REFUND_EXPIRED],
+            total_refunded="600.0000",
+        )
+
+        assert status.raw.total_refunded == "600.0000"
+
+    def test_void_payout_date_parses_on_a_reversed_payment(self, client, httpx_mock):
+        status = self.get(
+            client,
+            httpx_mock,
+            status_detail="reversed",
+            void_payout_date="2026-09-02T09:30:00.000Z",
+        )
+
+        assert status.status_detail == "reversed"
+        assert status.raw.void_payout_date == dt.datetime(
+            2026, 9, 2, 9, 30, tzinfo=dt.timezone.utc
+        )
+
+    def test_an_unknown_future_field_is_kept_not_dropped(self, client, httpx_mock):
+        status = self.get(client, httpx_mock, some_future_field="x")
+
+        assert status.raw.additional_properties["some_future_field"] == "x"
+
+
+class TestInstantPaymentsSuccessStatusIsUnchanged:
+    """Instant Payments declares exactly 200. Nothing else may be read as success.
+
+    The Automatic Payments charge endpoint carries a narrow compatibility
+    allowance for a 200 alongside its documented 201. That allowance is
+    endpoint-scoped, and these tests exist so it can never quietly become a
+    global rule.
+    """
+
+    @pytest.mark.parametrize("status_code", [201, 202, 204])
+    def test_create_rejects_a_success_status_khipu_does_not_document(
+        self, client, httpx_mock, status_code
+    ):
+        httpx_mock.add_response(
+            url=PAYMENTS_URL, status_code=status_code, json=CREATE_RESPONSE
+        )
+
+        with pytest.raises(KhipuResponseError):
+            create(client)
+
+    @pytest.mark.parametrize("status_code", [201, 202, 204])
+    def test_get_rejects_a_success_status_khipu_does_not_document(
+        self, client, httpx_mock, status_code
+    ):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}",
+            status_code=status_code,
+            json=get_response(),
+        )
+
+        with pytest.raises(KhipuResponseError):
+            client.get_instant_payment(payment_id=PAYMENT_ID)

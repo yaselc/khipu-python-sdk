@@ -10,6 +10,115 @@ https://semver.org/
 ### Added
 - _TBD_
 
+## [0.3.0] - 2026-09-22
+
+Adopts the Automatic Payments OpenAPI document Khipu republished after the
+2026-08-28 revision this SDK had pinned. One upstream document carries the
+fixes for both #10 (subscription status contract) and #9
+(`max_amount_per_charge`), so they land together.
+
+Also re-syncs the Instant Payments document (#12), so both committed specs
+match what Khipu publishes and the `spec-drift` watch is green for both.
+
+Contains **breaking changes** to the Automatic Payments facade.
+
+### Fixed
+
+- **PAC subscription retrieval raised on valid provider responses (#10).**
+  Observed against the live developer-mode API in parle-cl/telemaco#377:
+  - a pre-signing subscription with `status: "PENDING"` raised
+    `ValueError: 'PENDING' is not a valid SubscriptionStatusStatus`;
+  - a post-signing subscription that omitted `customer_bank_code` raised
+    `KhipuResponseError (KeyError: 'customer_bank_code')`.
+
+  Khipu's current document resolves both: `PENDING` is a declared status, and
+  `customer_bank_code` has been removed from the schema entirely. It also adds
+  `DISCARDED`, which would have caused the identical enum failure on an
+  unsubscribed mandate.
+- **`create_charge` could not read a successful charge.** Khipu now documents
+  `POST /v1/automatic-payment/charge-intent` as `201 Created`; the generated
+  client parsed only `200`, so a successful charge surfaced as
+  `KhipuResponseError: "success status with no usable body"`. This had not been
+  hit in practice because no PAC charge had been attempted yet.
+
+### Added
+
+- **`max_amount_per_charge` (#9)** is now a required, typed parameter of
+  `create_subscription`, matching Khipu's required field. It is validated
+  against the currency's minor-unit scale like `max_amount`.
+- `AutomaticSubscriptionStatus` now carries `developer` and
+  `service_reference`. Khipu returns `service_reference` as an empty string
+  until the customer signs; `""` is passed through unchanged and never rewritten
+  to `None`.
+- Charge rejections (`422`) are raised as `KhipuApiError` with Khipu's
+  `error_message` as the message and `error_code` reachable through `payload`.
+- The generated client now covers `DELETE /v1/automatic-payment/subscription/{id}`
+  (unsubscribe). It is deliberately **not** exposed on `KhipuClient`: the
+  operation is irreversible and exposing it is a separate API-design decision.
+- A release-metadata regression (`tests/unit/test_release_metadata.py`) ties
+  `project.version` to a dated CHANGELOG section and to the README's pinned
+  install examples. Merging to master tags whatever version `pyproject.toml`
+  declares, and silently does nothing when that tag already exists, so an
+  un-bumped version is a defect this now catches before merge.
+
+### Changed
+
+- **`create_subscription` requires `max_amount_per_charge`.** Breaking for
+  callers of 0.2.0.
+- **`create_charge` makes `body`, `custom` and `transaction_id` optional**,
+  matching Khipu's revised `ChargeRequest`, which no longer requires them. An
+  omitted field is left out of the request entirely -- never sent as `null`,
+  never given a fabricated value. Callers that pass them are unaffected. They
+  remain the only merchant-side correlation fields Khipu echoes back, so an
+  application reconciling charges against its own records should keep requiring
+  them in its own service layer; that is application policy, not a constraint
+  the SDK imposes on every consumer.
+- `AutomaticSubscriptionStatus` gained `developer` and `service_reference`
+  before `raw`. Keyword construction and attribute reads are unaffected;
+  positional construction of this result type would be.
+- `create_charge` accepts Khipu's documented `201` and, for compatibility with
+  the contract Khipu published until 2026-09, a `200` carrying a usable
+  `ChargeResult`. That allowance is a closed set of exactly those two statuses:
+  any other 2xx -- `202 Accepted` most importantly -- is reported as
+  `KhipuResponseError` rather than being given the meaning of a created charge.
+
+### Instant Payments spec sync (#12)
+
+Khipu's Instant Payments revision is **additive only**. No endpoint, response
+status, required field, enum or security scheme changed; the `status`
+(`pending` / `verifying` / `done`) and `status_detail` vocabularies are
+identical to the previous document. Most of the diff is Spanish terminology
+(*reversa* -> *devolución*) and added response examples.
+
+- `payment-get-payment` gains three **optional** fields: `refunds`,
+  `total_refunded` and `void_payout_date`. They refine *when money actually
+  moved*, which `status_detail` alone cannot express: a refund with
+  `status: expired` never pays out, and `total_refunded` excludes those.
+- These are **not promoted onto `InstantPaymentStatus`** in this release.
+  Promoting them is an API-design decision (`refunds` is a list of objects and
+  would need a stable result type of its own), not a spec-sync one. They are
+  reachable through `raw`, and are covered by regressions so promoting them
+  later is a small step.
+- No facade change was required, and none was made. Every Instant Payments
+  invariant is unchanged: no idempotency primitive exists in the document (the
+  word does not appear in it at all), `transaction_id` remains correlation
+  only, there is still no automatic retry, `get_instant_payment` remains the
+  authoritative retrieval primitive, incomplete success bodies remain
+  `KhipuResponseError`, payer PII stays unpromoted and out of `repr`, and money
+  stays exact `Decimal`.
+- Instant Payments declares exactly `200` for both payment endpoints, and a
+  regression now pins that the Automatic Payments charge compatibility
+  allowance (201 plus 200) did not leak into them: `201`, `202` and `204` are
+  rejected there.
+
+### Notes
+
+- Khipu's `ChargeError` vocabulary mentions `IDEMPOTENCY_KEY_REUSED`, but the
+  published `ChargeRequest` defines no idempotency field or header. The SDK
+  therefore sends none and treats no field as one -- `transaction_id` included.
+  Retry guidance is unchanged: the SDK still performs no retries. Tracked for
+  investigation in parle-cl/telemaco#377.
+
 ## [0.2.0] - 2026-08-28
 
 Production-hardening release. Contains **breaking changes** to the exception

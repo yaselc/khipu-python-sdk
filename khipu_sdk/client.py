@@ -72,7 +72,27 @@ _PARSE_FAILURES: tuple[type[Exception], ...] = (
 )
 
 #: Keys Khipu uses for human-readable error text, in preference order.
-_ERROR_MESSAGE_KEYS = ("message", "error", "detail", "title", "description", "errors")
+#: ``error_message`` is Khipu's own key on the ChargeError body returned with
+#: a 422 charge rejection; ``error_code`` stays reachable via ``payload``.
+_ERROR_MESSAGE_KEYS = (
+    "message",
+    "error_message",
+    "error",
+    "detail",
+    "title",
+    "description",
+    "errors",
+)
+
+#: Success statuses the SDK accepts for ``POST /v1/automatic-payment/charge-intent``
+#: *in addition to* the 201 Khipu documents today. Khipu's own specification said
+#: 200 until its 2026-09 revision, so a merchant account still answering the older
+#: contract must not lose a payment id Khipu did return.
+#:
+#: This list is deliberately closed. Every other 2xx is rejected, because a status
+#: Khipu has never documented for this endpoint carries no promise that a charge
+#: was created -- 202 Accepted most obviously means the opposite.
+_CHARGE_SUCCESS_COMPATIBILITY_STATUSES: frozenset[int] = frozenset({200})
 
 _MISSING_GENERATED_HINT = (
     "The generated Khipu clients are not importable. This normally means the "
@@ -233,8 +253,27 @@ class KhipuClient:
             body=truncate(text) if text else None,
         )
 
-    def _unwrap(self, result: Any) -> Any:
-        """Return the parsed model, or raise the appropriate SDK exception."""
+    def _unwrap(
+        self,
+        result: Any,
+        *,
+        compatibility_model: Optional[Any] = None,
+        compatibility_statuses: frozenset[int] = frozenset(),
+    ) -> Any:
+        """Return the parsed model, or raise the appropriate SDK exception.
+
+        The generated clients parse only the exact success statuses Khipu's
+        current document declares. Khipu has already changed one of them --
+        ``POST /charge-intent`` moved from 200 to 201 -- so an endpoint may name
+        a *closed set* of additional statuses it still accepts, together with the
+        model to parse them with.
+
+        That set is a compatibility allowance, never a blanket rule: a 2xx
+        outside it is reported as :class:`~khipu_sdk.errors.KhipuResponseError`
+        rather than being given the meaning of a documented success. A financial
+        result is not inferred from a status code Khipu never documented for the
+        endpoint. A body that cannot be parsed still raises, whatever its status.
+        """
         status = int(result.status_code)
         text = self._decode_body(result)
 
@@ -242,6 +281,17 @@ class KhipuClient:
             raise self._api_error(status, text)
 
         parsed = getattr(result, "parsed", None)
+        if (
+            parsed is None
+            and compatibility_model is not None
+            and status in compatibility_statuses
+            and text
+        ):
+            try:
+                parsed = compatibility_model.from_dict(json.loads(text))
+            except _PARSE_FAILURES:
+                parsed = None
+
         if parsed is None:
             raise KhipuResponseError(
                 "Khipu returned a success status with no usable body",
@@ -359,21 +409,35 @@ class KhipuClient:
         name: str,
         email: str,
         max_amount: AmountInput,
+        max_amount_per_charge: AmountInput,
         currency: str,
         notify_url: str,
         return_url: str,
         cancel_url: str,
         **extra_fields: Any,
     ) -> AutomaticSubscriptionCreateResult:
-        """Create a PAC subscription (``POST /v1/automatic-payment/subscription``)."""
+        """Create a PAC subscription (``POST /v1/automatic-payment/subscription``).
+
+        ``max_amount`` caps what may be charged per month; Khipu also requires
+        ``max_amount_per_charge``, the cap on a single charge, which it
+        documents as not exceeding ``max_amount``. That relationship is Khipu's
+        to enforce -- the SDK sends both and lets the provider answer -- but
+        both are validated against the currency's minor-unit scale first.
+        """
         client = self._require(self._automatic, name="Automatic Payments")
         currency = validate_currency(currency)
         normalized_max_amount = normalize_amount(max_amount, currency)
+        normalized_max_amount_per_charge = normalize_amount(
+            max_amount_per_charge, currency
+        )
 
         payload: dict[str, Any] = {
             "name": name,
             "email": email,
             "max_amount": amount_to_wire(normalized_max_amount),
+            "max_amount_per_charge": amount_to_wire(
+                normalized_max_amount_per_charge
+            ),
             "currency": currency,
             "notify_url": notify_url,
             "return_url": return_url,
@@ -400,7 +464,20 @@ class KhipuClient:
         )
 
     def get_subscription(self, *, subscription_id: str) -> AutomaticSubscriptionStatus:
-        """Fetch a PAC subscription (``GET /v1/automatic-payment/subscription/{id}``)."""
+        """Fetch a PAC subscription (``GET /v1/automatic-payment/subscription/{id}``).
+
+        This authenticated read is the only trustworthy source for a mandate's
+        state. The ``notify_url`` callback Khipu sends once the customer signs
+        is unsigned and unauthenticated, so treat it as a trigger to call this
+        method rather than as the answer.
+
+        ``subscription_id`` is passed through verbatim: Khipu's ids are opaque
+        provider tokens and the SDK validates no syntax against them.
+
+        See :class:`~khipu_sdk.types.AutomaticSubscriptionStatus` for the
+        status vocabulary and for what ``service_reference`` means before the
+        customer signs.
+        """
         client = self._require(self._automatic, name="Automatic Payments")
         endpoint = self._import_generated(
             "generated.automatic_payments.api.default.fetch_subscription_status_1"
@@ -412,6 +489,8 @@ class KhipuClient:
         return AutomaticSubscriptionStatus(
             subscription_id=parsed.subscription_id,
             status=_scalar(_field(parsed, "status")),
+            developer=_field(parsed, "developer"),
+            service_reference=_field(parsed, "service_reference"),
             raw=parsed,
         )
 
@@ -421,18 +500,32 @@ class KhipuClient:
         subscription_id: str,
         amount: AmountInput,
         subject: str,
-        body: str,
-        transaction_id: str,
         error_response_url: str,
-        custom: str,
         notify_url: str,
+        body: Optional[str] = None,
+        custom: Optional[str] = None,
+        transaction_id: Optional[str] = None,
         currency: Optional[str] = None,
         **extra_fields: Any,
     ) -> AutomaticChargeCreateResult:
         """Charge a PAC subscription (``POST /v1/automatic-payment/charge-intent``).
 
-        ``error_response_url``, ``custom`` and ``notify_url`` are required by
-        Khipu's ``ChargeRequest`` schema and are therefore required here.
+        ``error_response_url`` and ``notify_url`` are required by Khipu's
+        ``ChargeRequest`` schema and are therefore required here.
+
+        ``body``, ``custom`` and ``transaction_id`` are optional, matching the
+        schema. Omitting one leaves the field out of the request entirely; the
+        SDK never sends ``null`` and never invents a value. They remain the only
+        merchant-side correlation and description fields Khipu echoes back, so an
+        application that reconciles charges against its own records will want
+        them -- but that is the application's policy to enforce, not a
+        requirement the SDK imposes on every consumer.
+
+        ``transaction_id`` is **not** an idempotency key. Khipu's ``ChargeError``
+        vocabulary mentions ``IDEMPOTENCY_KEY_REUSED``, but the published
+        ``ChargeRequest`` defines no idempotency field or header, so the SDK
+        neither sends one nor treats any field as one. The no-retry policy
+        described in this module's docstring is unchanged.
 
         The charge payload carries no currency -- it is inherited from the
         subscription -- so pass ``currency`` if you want the SDK to apply
@@ -448,13 +541,17 @@ class KhipuClient:
             "subscription_id": subscription_id,
             "amount": amount_to_wire(normalized_amount),
             "subject": subject,
-            "body": body,
-            "transaction_id": transaction_id,
             "error_response_url": error_response_url,
-            "custom": custom,
             "notify_url": notify_url,
             **extra_fields,
         }
+        for key, optional_value in (
+            ("body", body),
+            ("custom", custom),
+            ("transaction_id", transaction_id),
+        ):
+            if optional_value is not None:
+                payload[key] = optional_value
 
         endpoint = self._import_generated(
             "generated.automatic_payments.api.default.create_charge_1"
@@ -462,10 +559,17 @@ class KhipuClient:
         model_cls = self._import_generated(
             "generated.automatic_payments.models.charge_request"
         ).ChargeRequest
+        result_cls = self._import_generated(
+            "generated.automatic_payments.models.charge_result"
+        ).ChargeResult
 
         result = self._invoke(
             endpoint.sync_detailed, client=client, body=self._build_model(model_cls, payload)
         )
-        parsed = self._unwrap(result)
+        parsed = self._unwrap(
+            result,
+            compatibility_model=result_cls,
+            compatibility_statuses=_CHARGE_SUCCESS_COMPATIBILITY_STATUSES,
+        )
 
         return AutomaticChargeCreateResult(payment_id=parsed.payment_id, raw=parsed)

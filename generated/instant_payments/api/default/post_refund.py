@@ -82,19 +82,19 @@ def sync_detailed(
 ) -> Response[Any | RefundPostRefund2]:
     """Refund payment
 
-     Reversa total o parcial del monto de un pago. Con `type=full` el monto completo reversable del pago
-    queda marcado para devolución al pagador; con `type=partial` queda marcada la parte indicada en
-    `amount`. Se pueden realizar varias reversas parciales mientras la billetera de reversas tenga saldo
-    y el pago mantenga monto reversable.
+     Devolución total o parcial del monto de un pago. Con `type=full` el monto completo disponible para
+    devolver queda marcado para devolución al pagador; con `type=partial` queda marcada la parte
+    indicada en `amount`. Se pueden realizar varias devoluciones parciales mientras la billetera de
+    devoluciones tenga saldo y el pago mantenga monto disponible para devolver.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com. El
-    comercio gestiona una billetera de reversas que debe mantener con saldo suficiente (recargándola)
-    para concretar las reversas; el saldo se puede consultar con [*Get refund wallet
-    balance*](#operation/getRefundWalletBalance). Solo se pueden reversar pagos conciliados, hasta 180
+    comercio gestiona una billetera de devoluciones que debe mantener con saldo suficiente
+    (recargándola) para concretar las devoluciones; el saldo se puede consultar con [*Get refund wallet
+    balance*](#operation/getRefundWalletBalance). Solo se pueden devolver pagos conciliados, hasta 180
     días después de su conciliación.
 
     Args:
-        body (RefundPostRefund | Unset): Datos para reversar un pago.
+        body (RefundPostRefund | Unset): Datos para solicitar la devolución de un pago.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -122,19 +122,19 @@ def sync(
 ) -> Any | RefundPostRefund2 | None:
     """Refund payment
 
-     Reversa total o parcial del monto de un pago. Con `type=full` el monto completo reversable del pago
-    queda marcado para devolución al pagador; con `type=partial` queda marcada la parte indicada en
-    `amount`. Se pueden realizar varias reversas parciales mientras la billetera de reversas tenga saldo
-    y el pago mantenga monto reversable.
+     Devolución total o parcial del monto de un pago. Con `type=full` el monto completo disponible para
+    devolver queda marcado para devolución al pagador; con `type=partial` queda marcada la parte
+    indicada en `amount`. Se pueden realizar varias devoluciones parciales mientras la billetera de
+    devoluciones tenga saldo y el pago mantenga monto disponible para devolver.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com. El
-    comercio gestiona una billetera de reversas que debe mantener con saldo suficiente (recargándola)
-    para concretar las reversas; el saldo se puede consultar con [*Get refund wallet
-    balance*](#operation/getRefundWalletBalance). Solo se pueden reversar pagos conciliados, hasta 180
+    comercio gestiona una billetera de devoluciones que debe mantener con saldo suficiente
+    (recargándola) para concretar las devoluciones; el saldo se puede consultar con [*Get refund wallet
+    balance*](#operation/getRefundWalletBalance). Solo se pueden devolver pagos conciliados, hasta 180
     días después de su conciliación.
 
     Args:
-        body (RefundPostRefund | Unset): Datos para reversar un pago.
+        body (RefundPostRefund | Unset): Datos para solicitar la devolución de un pago.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -157,19 +157,19 @@ async def asyncio_detailed(
 ) -> Response[Any | RefundPostRefund2]:
     """Refund payment
 
-     Reversa total o parcial del monto de un pago. Con `type=full` el monto completo reversable del pago
-    queda marcado para devolución al pagador; con `type=partial` queda marcada la parte indicada en
-    `amount`. Se pueden realizar varias reversas parciales mientras la billetera de reversas tenga saldo
-    y el pago mantenga monto reversable.
+     Devolución total o parcial del monto de un pago. Con `type=full` el monto completo disponible para
+    devolver queda marcado para devolución al pagador; con `type=partial` queda marcada la parte
+    indicada en `amount`. Se pueden realizar varias devoluciones parciales mientras la billetera de
+    devoluciones tenga saldo y el pago mantenga monto disponible para devolver.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com. El
-    comercio gestiona una billetera de reversas que debe mantener con saldo suficiente (recargándola)
-    para concretar las reversas; el saldo se puede consultar con [*Get refund wallet
-    balance*](#operation/getRefundWalletBalance). Solo se pueden reversar pagos conciliados, hasta 180
+    comercio gestiona una billetera de devoluciones que debe mantener con saldo suficiente
+    (recargándola) para concretar las devoluciones; el saldo se puede consultar con [*Get refund wallet
+    balance*](#operation/getRefundWalletBalance). Solo se pueden devolver pagos conciliados, hasta 180
     días después de su conciliación.
 
     Args:
-        body (RefundPostRefund | Unset): Datos para reversar un pago.
+        body (RefundPostRefund | Unset): Datos para solicitar la devolución de un pago.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -195,19 +195,19 @@ async def asyncio(
 ) -> Any | RefundPostRefund2 | None:
     """Refund payment
 
-     Reversa total o parcial del monto de un pago. Con `type=full` el monto completo reversable del pago
-    queda marcado para devolución al pagador; con `type=partial` queda marcada la parte indicada en
-    `amount`. Se pueden realizar varias reversas parciales mientras la billetera de reversas tenga saldo
-    y el pago mantenga monto reversable.
+     Devolución total o parcial del monto de un pago. Con `type=full` el monto completo disponible para
+    devolver queda marcado para devolución al pagador; con `type=partial` queda marcada la parte
+    indicada en `amount`. Se pueden realizar varias devoluciones parciales mientras la billetera de
+    devoluciones tenga saldo y el pago mantenga monto disponible para devolver.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com. El
-    comercio gestiona una billetera de reversas que debe mantener con saldo suficiente (recargándola)
-    para concretar las reversas; el saldo se puede consultar con [*Get refund wallet
-    balance*](#operation/getRefundWalletBalance). Solo se pueden reversar pagos conciliados, hasta 180
+    comercio gestiona una billetera de devoluciones que debe mantener con saldo suficiente
+    (recargándola) para concretar las devoluciones; el saldo se puede consultar con [*Get refund wallet
+    balance*](#operation/getRefundWalletBalance). Solo se pueden devolver pagos conciliados, hasta 180
     días después de su conciliación.
 
     Args:
-        body (RefundPostRefund | Unset): Datos para reversar un pago.
+        body (RefundPostRefund | Unset): Datos para solicitar la devolución de un pago.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

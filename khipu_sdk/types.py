@@ -80,8 +80,32 @@ class AutomaticSubscriptionCreateResult:
 
 @dataclass(frozen=True)
 class AutomaticSubscriptionStatus:
+    """PAC subscription state from ``GET /v1/automatic-payment/subscription/{id}``.
+
+    This is the only authoritative view of a subscription. Khipu's
+    ``notify_url`` callback carries no signature, no token and no
+    provider-authenticated field, so a callback claiming ``"enabled"`` is a
+    hint to re-read this endpoint, never evidence on its own.
+
+    ``subscription_id`` is an **opaque provider string**. Khipu's schema example
+    shows a UUID, but the live API issues short mixed-case alphanumeric tokens;
+    the SDK imposes no syntax on it.
+
+    ``status`` is Khipu's own value, passed through as a plain string:
+    ``PENDING`` before the customer signs the bank mandate, then ``SIGNED`` /
+    ``ENABLED``, ``DISABLED``, or ``DISCARDED`` once the subscription has been
+    unsubscribed. Only ``ENABLED`` permits a charge.
+
+    ``service_reference`` comes back **empty** until the customer signs. ``""``
+    is a value Khipu sent, not an absence, and the SDK never rewrites it to
+    ``None``. Khipu's schema carries no ``customer_bank_code``; anything it
+    sends that this type does not promote stays reachable through ``raw``.
+    """
+
     subscription_id: str
     status: Optional[str] = None
+    developer: Optional[bool] = None
+    service_reference: Optional[str] = None
     raw: Optional[Any] = field(default=None, repr=False)
 
 

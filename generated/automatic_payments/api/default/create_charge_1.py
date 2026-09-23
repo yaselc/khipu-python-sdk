@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.charge_error import ChargeError
 from ...models.charge_request import ChargeRequest
 from ...models.charge_result import ChargeResult
 from ...types import Response
@@ -31,11 +32,11 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | ChargeResult | None:
-    if response.status_code == 200:
-        response_200 = ChargeResult.from_dict(response.json())
+) -> Any | ChargeError | ChargeResult | None:
+    if response.status_code == 201:
+        response_201 = ChargeResult.from_dict(response.json())
 
-        return response_200
+        return response_201
 
     if response.status_code == 400:
         response_400 = cast(Any, None)
@@ -45,9 +46,14 @@ def _parse_response(
         response_401 = cast(Any, None)
         return response_401
 
-    if response.status_code == 404:
-        response_404 = cast(Any, None)
-        return response_404
+    if response.status_code == 403:
+        response_403 = cast(Any, None)
+        return response_403
+
+    if response.status_code == 422:
+        response_422 = ChargeError.from_dict(response.json())
+
+        return response_422
 
     if response.status_code == 500:
         response_500 = cast(Any, None)
@@ -61,7 +67,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | ChargeResult]:
+) -> Response[Any | ChargeError | ChargeResult]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -74,7 +80,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ChargeRequest,
-) -> Response[Any | ChargeResult]:
+) -> Response[Any | ChargeError | ChargeResult]:
     """Creación de intención de cobro
 
      Éste método crea una nueva solicitud de cargo para la suscripción especificada.
@@ -88,7 +94,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ChargeResult]
+        Response[Any | ChargeError | ChargeResult]
     """
 
     kwargs = _get_kwargs(
@@ -106,7 +112,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: ChargeRequest,
-) -> Any | ChargeResult | None:
+) -> Any | ChargeError | ChargeResult | None:
     """Creación de intención de cobro
 
      Éste método crea una nueva solicitud de cargo para la suscripción especificada.
@@ -120,7 +126,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ChargeResult
+        Any | ChargeError | ChargeResult
     """
 
     return sync_detailed(
@@ -133,7 +139,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ChargeRequest,
-) -> Response[Any | ChargeResult]:
+) -> Response[Any | ChargeError | ChargeResult]:
     """Creación de intención de cobro
 
      Éste método crea una nueva solicitud de cargo para la suscripción especificada.
@@ -147,7 +153,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ChargeResult]
+        Response[Any | ChargeError | ChargeResult]
     """
 
     kwargs = _get_kwargs(
@@ -163,7 +169,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: ChargeRequest,
-) -> Any | ChargeResult | None:
+) -> Any | ChargeError | ChargeResult | None:
     """Creación de intención de cobro
 
      Éste método crea una nueva solicitud de cargo para la suscripción especificada.
@@ -177,7 +183,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ChargeResult
+        Any | ChargeError | ChargeResult
     """
 
     return (
