@@ -84,6 +84,16 @@ _ERROR_MESSAGE_KEYS = (
     "errors",
 )
 
+#: Success statuses the SDK accepts for ``POST /v1/automatic-payment/charge-intent``
+#: *in addition to* the 201 Khipu documents today. Khipu's own specification said
+#: 200 until its 2026-09 revision, so a merchant account still answering the older
+#: contract must not lose a payment id Khipu did return.
+#:
+#: This list is deliberately closed. Every other 2xx is rejected, because a status
+#: Khipu has never documented for this endpoint carries no promise that a charge
+#: was created -- 202 Accepted most obviously means the opposite.
+_CHARGE_SUCCESS_COMPATIBILITY_STATUSES: frozenset[int] = frozenset({200})
+
 _MISSING_GENERATED_HINT = (
     "The generated Khipu clients are not importable. This normally means the "
     "installed distribution is incomplete; reinstall the package, or run "
@@ -243,16 +253,26 @@ class KhipuClient:
             body=truncate(text) if text else None,
         )
 
-    def _unwrap(self, result: Any, *, success_model: Optional[Any] = None) -> Any:
+    def _unwrap(
+        self,
+        result: Any,
+        *,
+        compatibility_model: Optional[Any] = None,
+        compatibility_statuses: frozenset[int] = frozenset(),
+    ) -> Any:
         """Return the parsed model, or raise the appropriate SDK exception.
 
-        The generated clients only parse the exact success statuses Khipu's
-        document declares, and this provider has already been observed serving
-        responses its own schema contradicted -- including moving
-        ``POST /charge-intent`` from ``200`` to ``201``. When ``success_model``
-        is given, a 2xx the generated layer did not enumerate is parsed here
-        instead of costing the caller a result Khipu did return. A body that is
-        genuinely unusable still raises.
+        The generated clients parse only the exact success statuses Khipu's
+        current document declares. Khipu has already changed one of them --
+        ``POST /charge-intent`` moved from 200 to 201 -- so an endpoint may name
+        a *closed set* of additional statuses it still accepts, together with the
+        model to parse them with.
+
+        That set is a compatibility allowance, never a blanket rule: a 2xx
+        outside it is reported as :class:`~khipu_sdk.errors.KhipuResponseError`
+        rather than being given the meaning of a documented success. A financial
+        result is not inferred from a status code Khipu never documented for the
+        endpoint. A body that cannot be parsed still raises, whatever its status.
         """
         status = int(result.status_code)
         text = self._decode_body(result)
@@ -261,9 +281,14 @@ class KhipuClient:
             raise self._api_error(status, text)
 
         parsed = getattr(result, "parsed", None)
-        if parsed is None and success_model is not None and text:
+        if (
+            parsed is None
+            and compatibility_model is not None
+            and status in compatibility_statuses
+            and text
+        ):
             try:
-                parsed = success_model.from_dict(json.loads(text))
+                parsed = compatibility_model.from_dict(json.loads(text))
             except _PARSE_FAILURES:
                 parsed = None
 
@@ -475,18 +500,32 @@ class KhipuClient:
         subscription_id: str,
         amount: AmountInput,
         subject: str,
-        body: str,
-        transaction_id: str,
         error_response_url: str,
-        custom: str,
         notify_url: str,
+        body: Optional[str] = None,
+        custom: Optional[str] = None,
+        transaction_id: Optional[str] = None,
         currency: Optional[str] = None,
         **extra_fields: Any,
     ) -> AutomaticChargeCreateResult:
         """Charge a PAC subscription (``POST /v1/automatic-payment/charge-intent``).
 
-        ``error_response_url``, ``custom`` and ``notify_url`` are required by
-        Khipu's ``ChargeRequest`` schema and are therefore required here.
+        ``error_response_url`` and ``notify_url`` are required by Khipu's
+        ``ChargeRequest`` schema and are therefore required here.
+
+        ``body``, ``custom`` and ``transaction_id`` are optional, matching the
+        schema. Omitting one leaves the field out of the request entirely; the
+        SDK never sends ``null`` and never invents a value. They remain the only
+        merchant-side correlation and description fields Khipu echoes back, so an
+        application that reconciles charges against its own records will want
+        them -- but that is the application's policy to enforce, not a
+        requirement the SDK imposes on every consumer.
+
+        ``transaction_id`` is **not** an idempotency key. Khipu's ``ChargeError``
+        vocabulary mentions ``IDEMPOTENCY_KEY_REUSED``, but the published
+        ``ChargeRequest`` defines no idempotency field or header, so the SDK
+        neither sends one nor treats any field as one. The no-retry policy
+        described in this module's docstring is unchanged.
 
         The charge payload carries no currency -- it is inherited from the
         subscription -- so pass ``currency`` if you want the SDK to apply
@@ -502,13 +541,17 @@ class KhipuClient:
             "subscription_id": subscription_id,
             "amount": amount_to_wire(normalized_amount),
             "subject": subject,
-            "body": body,
-            "transaction_id": transaction_id,
             "error_response_url": error_response_url,
-            "custom": custom,
             "notify_url": notify_url,
             **extra_fields,
         }
+        for key, optional_value in (
+            ("body", body),
+            ("custom", custom),
+            ("transaction_id", transaction_id),
+        ):
+            if optional_value is not None:
+                payload[key] = optional_value
 
         endpoint = self._import_generated(
             "generated.automatic_payments.api.default.create_charge_1"
@@ -523,6 +566,10 @@ class KhipuClient:
         result = self._invoke(
             endpoint.sync_detailed, client=client, body=self._build_model(model_cls, payload)
         )
-        parsed = self._unwrap(result, success_model=result_cls)
+        parsed = self._unwrap(
+            result,
+            compatibility_model=result_cls,
+            compatibility_statuses=_CHARGE_SUCCESS_COMPATIBILITY_STATUSES,
+        )
 
         return AutomaticChargeCreateResult(payment_id=parsed.payment_id, raw=parsed)

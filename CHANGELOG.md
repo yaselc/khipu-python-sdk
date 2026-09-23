@@ -7,10 +7,17 @@ https://semver.org/
 
 ## [Unreleased]
 
+### Added
+- _TBD_
+
+## [0.3.0] - 2026-09-22
+
 Adopts the Automatic Payments OpenAPI document Khipu republished after the
 2026-08-28 revision this SDK had pinned. One upstream document carries the
 fixes for both #10 (subscription status contract) and #9
 (`max_amount_per_charge`), so they land together.
+
+Contains **breaking changes** to the Automatic Payments facade.
 
 ### Fixed
 
@@ -45,23 +52,40 @@ fixes for both #10 (subscription status contract) and #9
 - The generated client now covers `DELETE /v1/automatic-payment/subscription/{id}`
   (unsubscribe). It is deliberately **not** exposed on `KhipuClient`: the
   operation is irreversible and exposing it is a separate API-design decision.
+- A release-metadata regression (`tests/unit/test_release_metadata.py`) ties
+  `project.version` to a dated CHANGELOG section and to the README's pinned
+  install examples. Merging to master tags whatever version `pyproject.toml`
+  declares, and silently does nothing when that tag already exists, so an
+  un-bumped version is a defect this now catches before merge.
 
 ### Changed
 
-- `create_subscription` requires `max_amount_per_charge`. **Breaking** for
+- **`create_subscription` requires `max_amount_per_charge`.** Breaking for
   callers of 0.2.0.
+- **`create_charge` makes `body`, `custom` and `transaction_id` optional**,
+  matching Khipu's revised `ChargeRequest`, which no longer requires them. An
+  omitted field is left out of the request entirely -- never sent as `null`,
+  never given a fabricated value. Callers that pass them are unaffected. They
+  remain the only merchant-side correlation fields Khipu echoes back, so an
+  application reconciling charges against its own records should keep requiring
+  them in its own service layer; that is application policy, not a constraint
+  the SDK imposes on every consumer.
 - `AutomaticSubscriptionStatus` gained `developer` and `service_reference`
   before `raw`. Keyword construction and attribute reads are unaffected;
   positional construction of this result type would be.
-- A 2xx the generated client does not enumerate is now parsed by the facade
-  when the endpoint's success model is known, instead of being reported as an
-  unusable body. This provider has twice served responses its own schema
-  contradicted; a status-code change should not cost the caller a result Khipu
-  did return.
-- `create_charge` keeps `body`, `custom` and `transaction_id` as required
-  parameters even though Khipu removed them from `ChargeRequest`'s required
-  list. They are the merchant-side correlation fields needed to reconcile a
-  charge, and sending them is always valid.
+- `create_charge` accepts Khipu's documented `201` and, for compatibility with
+  the contract Khipu published until 2026-09, a `200` carrying a usable
+  `ChargeResult`. That allowance is a closed set of exactly those two statuses:
+  any other 2xx -- `202 Accepted` most importantly -- is reported as
+  `KhipuResponseError` rather than being given the meaning of a created charge.
+
+### Notes
+
+- Khipu's `ChargeError` vocabulary mentions `IDEMPOTENCY_KEY_REUSED`, but the
+  published `ChargeRequest` defines no idempotency field or header. The SDK
+  therefore sends none and treats no field as one -- `transaction_id` included.
+  Retry guidance is unchanged: the SDK still performs no retries. Tracked for
+  investigation in parle-cl/telemaco#377.
 
 ## [0.2.0] - 2026-08-28
 

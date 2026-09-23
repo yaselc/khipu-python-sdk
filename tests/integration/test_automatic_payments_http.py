@@ -117,17 +117,16 @@ class TestCreateChargeSignature:
         )
 
     @pytest.mark.parametrize("name", ["body", "custom", "transaction_id"])
-    def test_fields_khipu_relaxed_stay_required_on_the_facade(self, name):
+    def test_fields_khipu_relaxed_are_optional_on_the_facade(self, name):
         """Khipu dropped these from ChargeRequest's required list.
 
-        They stay required here on purpose. They are the merchant-side
-        correlation and description fields a caller needs in order to reconcile
-        a charge afterwards, sending them is always valid, and relaxing them
-        would change a published signature for no gain. This test exists so the
-        choice is visible rather than looking like a stale copy of the schema.
+        The SDK mirrors the provider contract and nothing more. Requiring a
+        field Khipu does not require would push one application's reconciliation
+        policy onto every consumer of the SDK; an application that needs these
+        fields enforces that in its own service layer.
         """
         parameter = inspect.signature(KhipuClient.create_charge).parameters[name]
-        assert parameter.default is inspect.Parameter.empty
+        assert parameter.default is None
 
     def test_charge_succeeds_using_only_the_public_signature(self, client, httpx_mock):
         httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
@@ -298,3 +297,149 @@ class TestChargeRejection:
             charge(client)
 
         assert exc.value.status_code == 403
+
+class TestOptionalChargeFields:
+    """`body`, `custom` and `transaction_id` follow Khipu's optionality."""
+
+    def minimal(self, client, **overrides):
+        kwargs = dict(
+            subscription_id="sub-1",
+            amount=Decimal("20000"),
+            subject="Monthly fee",
+            error_response_url="https://example.com/pac/error",
+            notify_url="https://example.com/pac/notify",
+        )
+        kwargs.update(overrides)
+        return client.create_charge(**kwargs)
+
+    def test_a_charge_succeeds_without_any_of_them(self, client, httpx_mock):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+
+        assert self.minimal(client).payment_id == "charge-1"
+
+    def test_omitted_fields_are_absent_from_the_payload(self, client, httpx_mock):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        self.minimal(client)
+
+        sent = json.loads(httpx_mock.get_requests()[0].content)
+        assert sent == {
+            "subscription_id": "sub-1",
+            "amount": 20000,
+            "subject": "Monthly fee",
+            "error_response_url": "https://example.com/pac/error",
+            "notify_url": "https://example.com/pac/notify",
+        }
+
+    @pytest.mark.parametrize("name", ["body", "custom", "transaction_id"])
+    def test_an_omitted_field_is_never_sent_as_null(self, client, httpx_mock, name):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        self.minimal(client)
+
+        sent = json.loads(httpx_mock.get_requests()[0].content)
+        assert name not in sent, f"{name} must be omitted, not sent as null"
+
+    @pytest.mark.parametrize(
+        "name,value",
+        [
+            ("body", "Servicio XYZ - Septiembre 2026"),
+            ("custom", "INVOICE-2026-0001"),
+            ("transaction_id", "INVOICE-2026-0001"),
+        ],
+    )
+    def test_a_supplied_field_is_serialised_unchanged(
+        self, client, httpx_mock, name, value
+    ):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        self.minimal(client, **{name: value})
+
+        assert json.loads(httpx_mock.get_requests()[0].content)[name] == value
+
+    def test_an_empty_string_is_sent_rather_than_treated_as_omission(
+        self, client, httpx_mock
+    ):
+        """Only ``None`` means "do not send"; "" is a value the caller chose."""
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        self.minimal(client, custom="")
+
+        assert json.loads(httpx_mock.get_requests()[0].content)["custom"] == ""
+
+    @pytest.mark.parametrize("name", ["error_response_url", "notify_url"])
+    def test_the_fields_khipu_still_requires_stay_required(self, name):
+        parameter = inspect.signature(KhipuClient.create_charge).parameters[name]
+        assert parameter.default is inspect.Parameter.empty
+
+    def test_an_existing_caller_passing_every_field_is_unaffected(
+        self, client, httpx_mock
+    ):
+        """The correlation-field call shape from 0.2.0 must behave identically."""
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        result = charge(client)
+
+        assert result.payment_id == "charge-1"
+        assert json.loads(httpx_mock.get_requests()[0].content) == {
+            "subscription_id": "sub-1",
+            "amount": 20000,
+            "subject": "Monthly fee",
+            "body": "Subscription monthly charge",
+            "transaction_id": "INVOICE-2026-0001",
+            "error_response_url": "https://example.com/pac/error",
+            "custom": "INVOICE-2026-0001",
+            "notify_url": "https://example.com/pac/notify",
+        }
+
+
+class TestChargeSuccessStatusIsNotOpenEnded:
+    """Only 201 (published) and 200 (previous contract) mean success.
+
+    A financial result must not be inferred from a status code Khipu has never
+    documented for this endpoint. 202 in particular means *accepted, not yet
+    processed* -- giving it the semantics of 201 would report a charge as
+    created when the provider said no such thing.
+    """
+
+    @pytest.mark.parametrize("accepted", [201, 200])
+    def test_an_accepted_status_with_a_usable_body_succeeds(
+        self, client, httpx_mock, accepted
+    ):
+        httpx_mock.add_response(
+            url=CHARGE_URL, status_code=accepted, json=CHARGE_CREATED
+        )
+
+        assert charge(client).payment_id == "charge-1"
+
+    @pytest.mark.parametrize("rejected", [202, 203, 206])
+    def test_another_2xx_is_not_promoted_to_success_even_with_a_valid_body(
+        self, client, httpx_mock, rejected
+    ):
+        httpx_mock.add_response(
+            url=CHARGE_URL, status_code=rejected, json=CHARGE_CREATED
+        )
+
+        with pytest.raises(KhipuResponseError) as exc:
+            charge(client)
+
+        assert exc.value.status_code == rejected
+
+    def test_204_no_content_is_not_a_successful_charge(self, client, httpx_mock):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=204)
+
+        with pytest.raises(KhipuResponseError):
+            charge(client)
+
+    @pytest.mark.parametrize("accepted", [201, 200])
+    def test_an_unusable_body_on_an_accepted_status_still_raises(
+        self, client, httpx_mock, accepted
+    ):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=accepted, text="not json")
+
+        with pytest.raises(KhipuResponseError):
+            charge(client)
+
+    @pytest.mark.parametrize("accepted", [201, 200])
+    def test_a_body_missing_payment_id_on_an_accepted_status_raises(
+        self, client, httpx_mock, accepted
+    ):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=accepted, json={})
+
+        with pytest.raises(KhipuResponseError):
+            charge(client)

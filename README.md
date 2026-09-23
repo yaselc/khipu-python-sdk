@@ -83,7 +83,7 @@ plain Git install is fully functional.
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.2.0
+khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.0
 ```
 
 Or in `pyproject.toml`:
@@ -91,7 +91,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.2.0",
+  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.0",
 ]
 ```
 
@@ -403,12 +403,13 @@ charge = client.create_charge(
     subscription_id=subscription.subscription_id,
     amount=Decimal("20000"),
     subject="Monthly fee",
-    body="Subscription monthly charge",
-    transaction_id="INVOICE-2026-0001",
     # Required by Khipu's ChargeRequest schema:
     error_response_url="https://your-app.example.com/pac/error/",
-    custom="INVOICE-2026-0001",
     notify_url="https://your-app.example.com/pac/notify/",
+    # Optional in Khipu's schema; omitted fields are left out of the request:
+    body="Subscription monthly charge",
+    transaction_id="INVOICE-2026-0001",
+    custom="INVOICE-2026-0001",
     # Optional, local validation only; never sent to Khipu:
     currency="CLP",
 )
@@ -416,6 +417,18 @@ charge = client.create_charge(
 
 The charge payload carries no currency — it is inherited from the subscription —
 so pass `currency` if you want minor-unit validation applied to `amount`.
+
+`body`, `custom` and `transaction_id` are optional because Khipu's schema makes
+them optional. Omitting one leaves the field out of the request entirely: the
+SDK never sends `null` and never invents a value. They are still the only
+merchant-side fields Khipu echoes back, so if you reconcile charges against your
+own records, require them in **your** service layer — that is your policy to
+enforce, not one the SDK imposes on every consumer.
+
+`transaction_id` is **not** an idempotency key. Khipu's `ChargeError` vocabulary
+mentions `IDEMPOTENCY_KEY_REUSED`, but the published `ChargeRequest` defines no
+idempotency field or header, so the SDK sends none and treats no field as one.
+The no-retry policy described above is unchanged.
 
 #### Subscription ids are opaque
 
@@ -457,8 +470,14 @@ Two things to know about this endpoint:
 
 #### Charge rejections
 
-`create_charge` succeeds on Khipu's documented `201 Created`. A refused charge
-comes back as `422` with Khipu's own reason, raised as `KhipuApiError`:
+`create_charge` succeeds on Khipu's documented `201 Created`, and also on a
+`200` carrying a usable `ChargeResult` — the contract Khipu published until
+2026-09, kept for compatibility. That allowance is exactly those two statuses:
+any other `2xx`, `202 Accepted` above all, raises `KhipuResponseError` rather
+than being read as a created charge.
+
+A refused charge comes back as `422` with Khipu's own reason, raised as
+`KhipuApiError`:
 
 ```python
 try:
