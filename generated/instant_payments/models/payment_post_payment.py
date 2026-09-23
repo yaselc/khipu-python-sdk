@@ -64,7 +64,7 @@ class PaymentPostPayment:
             poder reembolsar el cobro. Formato ISO-8601. Example: 2017-03-01T13:00:00Z.
         mandatory_payment_method (str | Unset): El cobro sólo se podrá pagar utilizando el medio de pago especificado.
             Los posibles valores para este campo se encuentran en el campo `id` de la respuesta del endpoint
-            `/api/3.0/merchants/paymentMethods`. Example: simplified_transfer.
+            `/v3/merchants/{id}/paymentMethods`. Example: SIMPLIFIED_TRANSFER.
         psp_client_merchant_name (str | Unset): Nombre del comercio final para quien un proveedor de servicios de pago
             procesa un pago. Requerido para transacciones de clientes PSP; no aplicable para otros. En caso de tratarse de
             un PSP de PSP, estos deben ingresarse separados por '->'. Example: PSP 1->PSP 2->Client Name.

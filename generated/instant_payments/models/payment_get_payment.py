@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -13,6 +13,10 @@ from ..models.payment_get_payment_payment_method import PaymentGetPaymentPayment
 from ..models.payment_get_payment_status import PaymentGetPaymentStatus
 from ..models.payment_get_payment_status_detail import PaymentGetPaymentStatusDetail
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.payment_get_payment_refunds_item import PaymentGetPaymentRefundsItem
+
 
 T = TypeVar("T", bound="PaymentGetPayment")
 
@@ -53,10 +57,10 @@ class PaymentGetPayment:
             `rejected-by-payer` (el pagador declaró que no pagará),
             `marked-as-abuse` (el pagador declaró que no pagará y que el cobro fue no solicitado),
             `reversed` (el pago fue anulado por el comercio y el monto quedó marcado para devolución al pagador),
-            `partially-refunded` (una parte del monto del pago quedó marcada para devolución al pagador mediante reversas
-            parciales), y
-            `fully-refunded` (el monto total del pago quedó marcado para devolución al pagador mediante una o más reversas).
-            Example: normal.
+            `partially-refunded` (una parte del monto del pago quedó marcada para devolución al pagador mediante
+            devoluciones parciales), y
+            `fully-refunded` (el monto total del pago quedó marcado para devolución al pagador mediante una o más
+            devoluciones). Example: normal.
         body (str): Detalle del cobro. Example: Test.
         picture_url (str): URL con imagen del cobro. Example: https://micomercio.com/picture_url.
         receipt_url (str): URL del comprobante de pago. Example: https://micomercio.com/order/receipt_url.
@@ -96,6 +100,14 @@ class PaymentGetPayment:
             autorizador de la operación. Example: AUT-20240418-0001.
         discount (str | Unset): Monto a descontar del valor pagado. Example: 0.0000.
         third_party_authorization_details (str | Unset): Ignorar este campo.
+        refunds (list[PaymentGetPaymentRefundsItem] | Unset): Devoluciones solicitadas sobre este pago, de la más
+            antigua a la más reciente. Solo aparece cuando el pago tiene devoluciones. Un pago anulado no admite
+            devoluciones: esa operación se informa con `void_payout_date`.
+        total_refunded (str | Unset): Monto total devuelto al pagador en este pago. Solo aparece cuando el pago tiene
+            devoluciones. Las devoluciones expiradas no se suman. Example: 5000.0000.
+        void_payout_date (datetime.datetime | Unset): Fecha y hora en que los fondos de la anulación fueron entregados
+            al pagador. Solo aparece en pagos anulados (`status_detail: reversed`) cuya anulación ya fue pagada al pagador.
+            Formato ISO-8601. Example: 2026-09-02T09:30:00.000Z.
     """
 
     payment_id: str
@@ -138,6 +150,9 @@ class PaymentGetPayment:
     authorizer_operation_code: str | Unset = UNSET
     discount: str | Unset = UNSET
     third_party_authorization_details: str | Unset = UNSET
+    refunds: list[PaymentGetPaymentRefundsItem] | Unset = UNSET
+    total_refunded: str | Unset = UNSET
+    void_payout_date: datetime.datetime | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -221,6 +236,19 @@ class PaymentGetPayment:
 
         third_party_authorization_details = self.third_party_authorization_details
 
+        refunds: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.refunds, Unset):
+            refunds = []
+            for refunds_item_data in self.refunds:
+                refunds_item = refunds_item_data.to_dict()
+                refunds.append(refunds_item)
+
+        total_refunded = self.total_refunded
+
+        void_payout_date: str | Unset = UNSET
+        if not isinstance(self.void_payout_date, Unset):
+            void_payout_date = self.void_payout_date.isoformat()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -272,11 +300,21 @@ class PaymentGetPayment:
             field_dict["third_party_authorization_details"] = (
                 third_party_authorization_details
             )
+        if refunds is not UNSET:
+            field_dict["refunds"] = refunds
+        if total_refunded is not UNSET:
+            field_dict["total_refunded"] = total_refunded
+        if void_payout_date is not UNSET:
+            field_dict["void_payout_date"] = void_payout_date
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.payment_get_payment_refunds_item import (
+            PaymentGetPaymentRefundsItem,
+        )
+
         d = dict(src_dict)
         payment_id = d.pop("payment_id")
 
@@ -360,6 +398,24 @@ class PaymentGetPayment:
             "third_party_authorization_details", UNSET
         )
 
+        _refunds = d.pop("refunds", UNSET)
+        refunds: list[PaymentGetPaymentRefundsItem] | Unset = UNSET
+        if _refunds is not UNSET:
+            refunds = []
+            for refunds_item_data in _refunds:
+                refunds_item = PaymentGetPaymentRefundsItem.from_dict(refunds_item_data)
+
+                refunds.append(refunds_item)
+
+        total_refunded = d.pop("total_refunded", UNSET)
+
+        _void_payout_date = d.pop("void_payout_date", UNSET)
+        void_payout_date: datetime.datetime | Unset
+        if isinstance(_void_payout_date, Unset):
+            void_payout_date = UNSET
+        else:
+            void_payout_date = isoparse(_void_payout_date)
+
         payment_get_payment = cls(
             payment_id=payment_id,
             payment_url=payment_url,
@@ -401,6 +457,9 @@ class PaymentGetPayment:
             authorizer_operation_code=authorizer_operation_code,
             discount=discount,
             third_party_authorization_details=third_party_authorization_details,
+            refunds=refunds,
+            total_refunded=total_refunded,
+            void_payout_date=void_payout_date,
         )
 
         payment_get_payment.additional_properties = d

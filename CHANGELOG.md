@@ -17,6 +17,9 @@ Adopts the Automatic Payments OpenAPI document Khipu republished after the
 fixes for both #10 (subscription status contract) and #9
 (`max_amount_per_charge`), so they land together.
 
+Also re-syncs the Instant Payments document (#12), so both committed specs
+match what Khipu publishes and the `spec-drift` watch is green for both.
+
 Contains **breaking changes** to the Automatic Payments facade.
 
 ### Fixed
@@ -78,6 +81,35 @@ Contains **breaking changes** to the Automatic Payments facade.
   `ChargeResult`. That allowance is a closed set of exactly those two statuses:
   any other 2xx -- `202 Accepted` most importantly -- is reported as
   `KhipuResponseError` rather than being given the meaning of a created charge.
+
+### Instant Payments spec sync (#12)
+
+Khipu's Instant Payments revision is **additive only**. No endpoint, response
+status, required field, enum or security scheme changed; the `status`
+(`pending` / `verifying` / `done`) and `status_detail` vocabularies are
+identical to the previous document. Most of the diff is Spanish terminology
+(*reversa* -> *devolución*) and added response examples.
+
+- `payment-get-payment` gains three **optional** fields: `refunds`,
+  `total_refunded` and `void_payout_date`. They refine *when money actually
+  moved*, which `status_detail` alone cannot express: a refund with
+  `status: expired` never pays out, and `total_refunded` excludes those.
+- These are **not promoted onto `InstantPaymentStatus`** in this release.
+  Promoting them is an API-design decision (`refunds` is a list of objects and
+  would need a stable result type of its own), not a spec-sync one. They are
+  reachable through `raw`, and are covered by regressions so promoting them
+  later is a small step.
+- No facade change was required, and none was made. Every Instant Payments
+  invariant is unchanged: no idempotency primitive exists in the document (the
+  word does not appear in it at all), `transaction_id` remains correlation
+  only, there is still no automatic retry, `get_instant_payment` remains the
+  authoritative retrieval primitive, incomplete success bodies remain
+  `KhipuResponseError`, payer PII stays unpromoted and out of `repr`, and money
+  stays exact `Decimal`.
+- Instant Payments declares exactly `200` for both payment endpoints, and a
+  regression now pins that the Automatic Payments charge compatibility
+  allowance (201 plus 200) did not leak into them: `201`, `202` and `204` are
+  rejected there.
 
 ### Notes
 

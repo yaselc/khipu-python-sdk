@@ -14,8 +14,8 @@ class MerchantGetPaymentMethodsPaymentMethodsItem:
     """Método de pago.
 
     Attributes:
-        id (str): Identificador del medio de pago. Example: simplified_transfer.
-        name (str): Nombre del medio de pago. Example: simplified_transfer.
+        id (str): Identificador del medio de pago. Example: SIMPLIFIED_TRANSFER.
+        name (str): Nombre del medio de pago. Example: SIMPLIFIED_TRANSFER.
         logo_url (str): URL del logo sugerido para mostrar. Example:
             https://s3.amazonaws.com/static.khipu.com/buttons/2015/150x50-transparent.png.
     """

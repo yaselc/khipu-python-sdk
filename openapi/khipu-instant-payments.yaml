@@ -116,6 +116,107 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/payment-get-payment'
+              examples:
+                pagoConDevoluciones:
+                  summary: Pago con devoluciones
+                  value:
+                    payment_id: gqzdy6chjne9
+                    payment_url: https://khipu.com/payment/info/gqzdy6chjne9
+                    simplified_transfer_url: https://app.khipu.com/payment/simplified/gqzdy6chjne9
+                    transfer_url: https://khipu.com/payment/manual/gqzdy6chjne9
+                    app_url: khipu:///pos/gqzdy6chjne9
+                    ready_for_terminal: false
+                    notification_token: >-
+                      9dec8aa176c5223026919b3b5579a4776923e646ff3be686b9e6b62ec042e91f
+                    receiver_id: 985101
+                    conciliation_date: '2017-03-01T13:00:00.000Z'
+                    subject: Test
+                    amount: '1000.0000'
+                    currency: CLP
+                    status: done
+                    status_detail: partially-refunded
+                    body: Test
+                    picture_url: https://micomercio.com/picture_url
+                    receipt_url: https://micomercio.com/order/receipt_url
+                    return_url: https://micomercio.com/order/return_url
+                    cancel_url: https://micomercio.com/order/cancel_url
+                    notify_url: https://micomercio.com/webhook/notify_url
+                    notify_api_version: '3.0'
+                    expires_date: '2023-12-31T15:45:00-04:00'
+                    attachment_urls:
+                      - https://micomercio.com/attachment1.pdf
+                    bank: Banco de Chile (Edwards Citi)
+                    bank_id: dfFbF
+                    payer_name: Nombre Pagador
+                    payer_email: pagador@email.com
+                    personal_identifier: 11.000.111-9
+                    bank_account_number: 1120490689
+                    out_of_date_conciliation: true
+                    transaction_id: zwo3wqz6uulcvajt
+                    custom: <xml>...</xml>
+                    responsible_user_email: responsible@email.com
+                    send_reminders: true
+                    send_email: true
+                    payment_method: simplified_transfer
+                    funds_source: debit
+                    total_refunded: '600.0000'
+                    refunds:
+                      - id: b31bd9aa-273b-4aed-9516-85866d47a931
+                        status: paid
+                        amount: '600.0000'
+                        currency: CLP
+                        request_date: '2026-08-28T14:03:22.000Z'
+                        authorization_date: '2026-08-28T14:05:12.000Z'
+                        payout_date: '2026-09-01T09:30:00.000Z'
+                      - id: 9f2e7c55-4d18-4b6a-b7e3-8c0d1a2f3b4c
+                        status: expired
+                        amount: '150.0000'
+                        currency: CLP
+                        request_date: '2026-08-28T14:03:22.000Z'
+                        expiration_date: '2026-08-31T03:00:00.000Z'
+                pagoAnulado:
+                  summary: Pago anulado
+                  value:
+                    payment_id: gqzdy6chjne9
+                    payment_url: https://khipu.com/payment/info/gqzdy6chjne9
+                    simplified_transfer_url: https://app.khipu.com/payment/simplified/gqzdy6chjne9
+                    transfer_url: https://khipu.com/payment/manual/gqzdy6chjne9
+                    app_url: khipu:///pos/gqzdy6chjne9
+                    ready_for_terminal: false
+                    notification_token: >-
+                      9dec8aa176c5223026919b3b5579a4776923e646ff3be686b9e6b62ec042e91f
+                    receiver_id: 985101
+                    conciliation_date: '2017-03-01T13:00:00.000Z'
+                    subject: Test
+                    amount: '1000.0000'
+                    currency: CLP
+                    status: done
+                    status_detail: reversed
+                    body: Test
+                    picture_url: https://micomercio.com/picture_url
+                    receipt_url: https://micomercio.com/order/receipt_url
+                    return_url: https://micomercio.com/order/return_url
+                    cancel_url: https://micomercio.com/order/cancel_url
+                    notify_url: https://micomercio.com/webhook/notify_url
+                    notify_api_version: '3.0'
+                    expires_date: '2023-12-31T15:45:00-04:00'
+                    attachment_urls:
+                      - https://micomercio.com/attachment1.pdf
+                    bank: Banco de Chile (Edwards Citi)
+                    bank_id: dfFbF
+                    payer_name: Nombre Pagador
+                    payer_email: pagador@email.com
+                    personal_identifier: 11.000.111-9
+                    bank_account_number: 1120490689
+                    out_of_date_conciliation: true
+                    transaction_id: zwo3wqz6uulcvajt
+                    custom: <xml>...</xml>
+                    responsible_user_email: responsible@email.com
+                    send_reminders: true
+                    send_email: true
+                    payment_method: simplified_transfer
+                    funds_source: debit
+                    void_payout_date: '2026-09-02T09:30:00.000Z'
         '400':
           description: Bad request - Solicitud mal formada
         '401':
@@ -265,19 +366,20 @@ paths:
       operationId: postRefund
       summary: Refund payment
       description: >-
-        Reversa total o parcial del monto de un pago. Con `type=full` el monto
-        completo reversable del pago queda marcado para devolución al pagador;
-        con `type=partial` queda marcada la parte indicada en `amount`. Se
-        pueden realizar varias reversas parciales mientras la billetera de
-        reversas tenga saldo y el pago mantenga monto reversable.
+        Devolución total o parcial del monto de un pago. Con `type=full` el
+        monto completo disponible para devolver queda marcado para devolución al
+        pagador; con `type=partial` queda marcada la parte indicada en `amount`.
+        Se pueden realizar varias devoluciones parciales mientras la billetera
+        de devoluciones tenga saldo y el pago mantenga monto disponible para
+        devolver.
 
 
         Esta operación requiere habilitación previa: el comercio debe
         solicitarla a soporte@khipu.com. El comercio gestiona una billetera de
-        reversas que debe mantener con saldo suficiente (recargándola) para
-        concretar las reversas; el saldo se puede consultar con [*Get refund
+        devoluciones que debe mantener con saldo suficiente (recargándola) para
+        concretar las devoluciones; el saldo se puede consultar con [*Get refund
         wallet balance*](#operation/getRefundWalletBalance). Solo se pueden
-        reversar pagos conciliados, hasta 180 días después de su conciliación.
+        devolver pagos conciliados, hasta 180 días después de su conciliación.
       parameters: []
       requestBody:
         content:
@@ -288,7 +390,7 @@ paths:
         '200':
           description: >-
             Operación exitosa. Devuelve un objeto JSON con el resultado de la
-            reversa.
+            devolución.
           content:
             application/json:
               schema:
@@ -308,10 +410,10 @@ paths:
       operationId: getRefundWalletBalance
       summary: Get refund wallet balance
       description: >-
-        Obtiene el saldo disponible de la billetera de reversas del comercio.
-        Para que las reversas se concreten, la billetera debe mantener un saldo
-        mayor a las reversas del día; puede recargarse en el enlace indicado en
-        `add_funds_url`.
+        Obtiene el saldo disponible de la billetera de devoluciones del
+        comercio. Para que las devoluciones se concreten, la billetera debe
+        mantener un saldo mayor a las devoluciones del día; puede recargarse en
+        el enlace indicado en `add_funds_url`.
 
 
         Esta operación requiere habilitación previa: el comercio debe
@@ -321,7 +423,7 @@ paths:
         '200':
           description: >-
             Operación exitosa. Devuelve un objeto JSON con el saldo de la
-            billetera de reversas.
+            billetera de devoluciones.
           content:
             application/json:
               schema:
@@ -764,10 +866,10 @@ components:
             marcado para devolución al pagador),
 
             `partially-refunded` (una parte del monto del pago quedó marcada
-            para devolución al pagador mediante reversas parciales), y
+            para devolución al pagador mediante devoluciones parciales), y
 
             `fully-refunded` (el monto total del pago quedó marcado para
-            devolución al pagador mediante una o más reversas).
+            devolución al pagador mediante una o más devoluciones).
           example: normal
         body:
           type: string
@@ -904,6 +1006,100 @@ components:
         third_party_authorization_details:
           type: string
           description: Ignorar este campo.
+        refunds:
+          type: array
+          minItems: 1
+          description: >-
+            Devoluciones solicitadas sobre este pago, de la más antigua a la más
+            reciente. Solo aparece cuando el pago tiene devoluciones. Un pago
+            anulado no admite devoluciones: esa operación se informa con
+            `void_payout_date`.
+          items:
+            type: object
+            required:
+              - id
+              - status
+              - amount
+              - currency
+              - request_date
+            properties:
+              id:
+                type: string
+                description: >-
+                  Identificador único de la devolución, el mismo que entrega la
+                  respuesta de `POST /v3/refunds`.
+                example: b31bd9aa-273b-4aed-9516-85866d47a931
+              status:
+                type: string
+                enum:
+                  - pending
+                  - authorized
+                  - paid
+                  - expired
+                description: >-
+                  Estado de la devolución:
+
+                  `pending` (solicitada, aún sin confirmar),
+
+                  `authorized` (Khipu se hace responsable de la devolución),
+
+                  `paid` (los fondos fueron entregados al pagador, confirmado
+                  por la conciliación bancaria), y
+
+                  `expired` (la devolución no se confirmó dentro de 15 días
+                  hábiles y ya no se realizará).
+                example: paid
+              amount:
+                type: string
+                description: Monto de la devolución.
+                example: '5000.0000'
+              currency:
+                type: string
+                description: El código de moneda en formato ISO-4217.
+                example: CLP
+              request_date:
+                type: string
+                format: date-time
+                description: >-
+                  Fecha y hora en que se solicitó la devolución. Formato
+                  ISO-8601.
+                example: '2026-08-28T14:03:22.000Z'
+              authorization_date:
+                type: string
+                format: date-time
+                description: >-
+                  Fecha y hora en que la devolución quedó autorizada. Solo
+                  aparece cuando ya fue autorizada. Formato ISO-8601.
+                example: '2026-08-28T14:05:12.000Z'
+              payout_date:
+                type: string
+                format: date-time
+                description: >-
+                  Fecha y hora en que los fondos fueron entregados al pagador.
+                  Solo aparece cuando la devolución ya fue pagada. Formato
+                  ISO-8601.
+                example: '2026-09-01T09:30:00.000Z'
+              expiration_date:
+                type: string
+                format: date-time
+                description: >-
+                  Fecha y hora en que la devolución expiró. Solo aparece cuando
+                  la devolución expiró. Formato ISO-8601.
+                example: '2026-08-31T03:00:00.000Z'
+        total_refunded:
+          type: string
+          description: >-
+            Monto total devuelto al pagador en este pago. Solo aparece cuando el
+            pago tiene devoluciones. Las devoluciones expiradas no se suman.
+          example: '5000.0000'
+        void_payout_date:
+          type: string
+          format: date-time
+          description: >-
+            Fecha y hora en que los fondos de la anulación fueron entregados al
+            pagador. Solo aparece en pagos anulados (`status_detail: reversed`)
+            cuya anulación ya fue pagada al pagador. Formato ISO-8601.
+          example: '2026-09-02T09:30:00.000Z'
     payment-post-payment:
       type: object
       description: >-
@@ -1080,8 +1276,8 @@ components:
             El cobro sólo se podrá pagar utilizando el medio de pago
             especificado. Los posibles valores para este campo se encuentran en
             el campo `id` de la respuesta del endpoint
-            `/api/3.0/merchants/paymentMethods`.
-          example: simplified_transfer
+            `/v3/merchants/{id}/paymentMethods`.
+          example: SIMPLIFIED_TRANSFER
         psp_client_merchant_name:
           type: string
           minLength: 3
@@ -1150,7 +1346,7 @@ components:
           example: false
     refund-post-refund:
       type: object
-      description: Datos para reversar un pago.
+      description: Datos para solicitar la devolución de un pago.
       required:
         - type
         - payment_id
@@ -1161,26 +1357,27 @@ components:
             - full
             - partial
           description: >-
-            Tipo de reversa. `full` reversa el monto completo reversable del
-            pago; `partial` reversa el monto indicado en `amount`.
+            Tipo de devolución. `full` devuelve el monto completo disponible
+            para devolver del pago; `partial` devuelve el monto indicado en
+            `amount`.
           example: partial
         payment_id:
           type: string
           maxLength: 255
-          description: Identificador del pago a reversar.
+          description: Identificador del pago a devolver.
           example: xsthgfkmvyvb
         amount:
           type: string
           description: >-
-            El monto a reversar. Obligatorio cuando `type` es `partial`; no
+            El monto a devolver. Obligatorio cuando `type` es `partial`; no
             puede ser utilizado cuando `type` es `full`. Sin separador de miles
             y usando '.' como separador de decimales. Hasta el número de
-            decimales que admita la moneda. No puede superar el saldo reversable
-            del pago.
+            decimales que admita la moneda. No puede superar el saldo del pago
+            disponible para devolver.
           example: '1000'
     refund-post-refund-2:
       type: object
-      description: Resultado de la reversa.
+      description: Resultado de la devolución.
       required:
         - id
         - payment_id
@@ -1191,25 +1388,25 @@ components:
       properties:
         id:
           type: string
-          description: Identificador único de la reversa.
+          description: Identificador único de la devolución.
           example: b31bd9aa-273b-4aed-9516-85866d47a931
         payment_id:
           type: string
-          description: Identificador del pago reversado.
+          description: Identificador del pago devuelto.
           example: xsthgfkmvyvb
         refunded_amount:
           type: string
           description: >-
-            Monto reversado en esta operación. Sin separador de miles, usando
-            '.' como separador de decimales y siempre con 4 decimales.
+            Monto devuelto en esta operación. Sin separador de miles, usando '.'
+            como separador de decimales y siempre con 4 decimales.
           example: '1000.0000'
         total_refunded:
           type: string
-          description: Monto total reversado del pago, sumando todas las reversas.
+          description: Monto total devuelto del pago, sumando todas las devoluciones.
           example: '1000.0000'
         remaining:
           type: string
-          description: Saldo del pago aún disponible para reversar.
+          description: Saldo del pago aún disponible para devolver.
           example: '2000.0000'
         currency:
           type: string
@@ -1219,11 +1416,11 @@ components:
           type: string
           description: >-
             Mensaje informativo opcional sobre el estado de la billetera de
-            reversas; por ejemplo, cuando su saldo es insuficiente para
-            concretar las reversas del día.
+            devoluciones; por ejemplo, cuando su saldo es insuficiente para
+            concretar las devoluciones del día.
     refund-wallet-get-balance:
       type: object
-      description: Saldo de la billetera de reversas.
+      description: Saldo de la billetera de devoluciones.
       required:
         - balance
         - currency
@@ -1232,7 +1429,7 @@ components:
         balance:
           type: string
           description: >-
-            Saldo disponible de la billetera de reversas. Sin separador de
+            Saldo disponible de la billetera de devoluciones. Sin separador de
             miles, usando '.' como separador de decimales y siempre con 4
             decimales.
           example: '5000.0000'
@@ -1242,7 +1439,7 @@ components:
           example: CLP
         add_funds_url:
           type: string
-          description: URL para recargar la billetera de reversas.
+          description: URL para recargar la billetera de devoluciones.
           example: https://khipu.com/dashboard/bills
     predict-get-predict:
       type: object
@@ -1522,11 +1719,11 @@ components:
               id:
                 type: string
                 description: Identificador del medio de pago.
-                example: simplified_transfer
+                example: SIMPLIFIED_TRANSFER
               name:
                 type: string
                 description: Nombre del medio de pago.
-                example: simplified_transfer
+                example: SIMPLIFIED_TRANSFER
               logo_url:
                 type: string
                 description: URL del logo sugerido para mostrar.

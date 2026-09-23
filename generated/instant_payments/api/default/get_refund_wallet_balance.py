@@ -73,9 +73,9 @@ def sync_detailed(
 ) -> Response[Any | RefundWalletGetBalance]:
     """Get refund wallet balance
 
-     Obtiene el saldo disponible de la billetera de reversas del comercio. Para que las reversas se
-    concreten, la billetera debe mantener un saldo mayor a las reversas del día; puede recargarse en el
-    enlace indicado en `add_funds_url`.
+     Obtiene el saldo disponible de la billetera de devoluciones del comercio. Para que las devoluciones
+    se concreten, la billetera debe mantener un saldo mayor a las devoluciones del día; puede recargarse
+    en el enlace indicado en `add_funds_url`.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com.
 
@@ -102,9 +102,9 @@ def sync(
 ) -> Any | RefundWalletGetBalance | None:
     """Get refund wallet balance
 
-     Obtiene el saldo disponible de la billetera de reversas del comercio. Para que las reversas se
-    concreten, la billetera debe mantener un saldo mayor a las reversas del día; puede recargarse en el
-    enlace indicado en `add_funds_url`.
+     Obtiene el saldo disponible de la billetera de devoluciones del comercio. Para que las devoluciones
+    se concreten, la billetera debe mantener un saldo mayor a las devoluciones del día; puede recargarse
+    en el enlace indicado en `add_funds_url`.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com.
 
@@ -127,9 +127,9 @@ async def asyncio_detailed(
 ) -> Response[Any | RefundWalletGetBalance]:
     """Get refund wallet balance
 
-     Obtiene el saldo disponible de la billetera de reversas del comercio. Para que las reversas se
-    concreten, la billetera debe mantener un saldo mayor a las reversas del día; puede recargarse en el
-    enlace indicado en `add_funds_url`.
+     Obtiene el saldo disponible de la billetera de devoluciones del comercio. Para que las devoluciones
+    se concreten, la billetera debe mantener un saldo mayor a las devoluciones del día; puede recargarse
+    en el enlace indicado en `add_funds_url`.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com.
 
@@ -154,9 +154,9 @@ async def asyncio(
 ) -> Any | RefundWalletGetBalance | None:
     """Get refund wallet balance
 
-     Obtiene el saldo disponible de la billetera de reversas del comercio. Para que las reversas se
-    concreten, la billetera debe mantener un saldo mayor a las reversas del día; puede recargarse en el
-    enlace indicado en `add_funds_url`.
+     Obtiene el saldo disponible de la billetera de devoluciones del comercio. Para que las devoluciones
+    se concreten, la billetera debe mantener un saldo mayor a las devoluciones del día; puede recargarse
+    en el enlace indicado en `add_funds_url`.
 
     Esta operación requiere habilitación previa: el comercio debe solicitarla a soporte@khipu.com.
 

@@ -361,18 +361,48 @@ The values Khipu currently publishes, with its own semantics:
 | `rejected-by-payer` | the payer declared they will not pay |
 | `marked-as-abuse` | the payer declared they will not pay and that the charge was unsolicited |
 | `reversed` | the payment was voided by the merchant and the amount was **marked for return** to the payer |
-| `partially-refunded` | part of the amount was **marked for return** to the payer through partial reversals |
-| `fully-refunded` | the full amount was **marked for return** to the payer through one or more reversals |
+| `partially-refunded` | part of the amount was **marked for return** to the payer through partial refunds |
+| `fully-refunded` | the full amount was **marked for return** to the payer through one or more refunds |
 
 Two points of precision:
 
 - Khipu's wording for the last three is *marked for return* to the payer, not
-  *returned*. Whether the money has actually moved back is a settlement
-  question, and the SDK does not answer it.
+  *returned*. `status_detail` does not tell you the money moved.
 - **`status == "done"` is not final forever.** A payment that reads `done` /
   `normal` today can later read `done` / `partially-refunded` or
   `done` / `fully-refunded`, because a payment can be reversed after it
   settles. Treating `done` as a terminal state is unsafe.
+
+#### Whether a refund actually paid out
+
+Khipu's 2026-09 revision added three optional fields to the payment body that
+answer the settlement question `status_detail` cannot:
+
+| Field | Meaning |
+|---|---|
+| `refunds[]` | each refund on the payment, with `status` of `pending`, `authorized`, `paid` or `expired`, plus `request_date` / `authorization_date` / `payout_date` / `expiration_date` |
+| `total_refunded` | total returned to the payer. **Expired refunds are not counted.** |
+| `void_payout_date` | when a voided payment's funds actually reached the payer |
+
+A refund that reads `expired` was never confirmed within 15 business days and
+will not be paid. So a payment can read `status_detail: partially-refunded`
+while some of that amount never left — which is exactly why
+`total_refunded` and `refunds[].status` exist.
+
+These three are **optional**, and the facade does not promote them onto
+`InstantPaymentStatus` yet: `refunds` is a list of objects and deserves a
+stable result type rather than leaking generated models. Read them through
+`raw` for now:
+
+```python
+status = client.get_instant_payment(payment_id=payment_id)
+
+# Khipu omits these fields entirely when a payment has no refunds, so the
+# generated model reports them as UNSET rather than as a value.
+refunds = getattr(status.raw, "refunds", None)
+if isinstance(refunds, list):
+    paid_out = [r for r in refunds if r.status.value == "paid"]
+```
 
 `status == "done"` alone is therefore not sufficient to recognise money. The SDK
 reports provider state verbatim and makes no business decision about it:

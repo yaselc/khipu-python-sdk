@@ -13,18 +13,18 @@ T = TypeVar("T", bound="RefundPostRefund2")
 
 @_attrs_define
 class RefundPostRefund2:
-    """Resultado de la reversa.
+    """Resultado de la devolución.
 
     Attributes:
-        id (str): Identificador único de la reversa. Example: b31bd9aa-273b-4aed-9516-85866d47a931.
-        payment_id (str): Identificador del pago reversado. Example: xsthgfkmvyvb.
-        refunded_amount (str): Monto reversado en esta operación. Sin separador de miles, usando '.' como separador de
+        id (str): Identificador único de la devolución. Example: b31bd9aa-273b-4aed-9516-85866d47a931.
+        payment_id (str): Identificador del pago devuelto. Example: xsthgfkmvyvb.
+        refunded_amount (str): Monto devuelto en esta operación. Sin separador de miles, usando '.' como separador de
             decimales y siempre con 4 decimales. Example: 1000.0000.
-        total_refunded (str): Monto total reversado del pago, sumando todas las reversas. Example: 1000.0000.
-        remaining (str): Saldo del pago aún disponible para reversar. Example: 2000.0000.
+        total_refunded (str): Monto total devuelto del pago, sumando todas las devoluciones. Example: 1000.0000.
+        remaining (str): Saldo del pago aún disponible para devolver. Example: 2000.0000.
         currency (str): Código de la moneda de los montos. Example: CLP.
-        message (str | Unset): Mensaje informativo opcional sobre el estado de la billetera de reversas; por ejemplo,
-            cuando su saldo es insuficiente para concretar las reversas del día.
+        message (str | Unset): Mensaje informativo opcional sobre el estado de la billetera de devoluciones; por
+            ejemplo, cuando su saldo es insuficiente para concretar las devoluciones del día.
     """
 
     id: str
