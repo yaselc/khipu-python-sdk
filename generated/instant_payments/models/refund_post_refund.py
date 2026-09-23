@@ -14,15 +14,15 @@ T = TypeVar("T", bound="RefundPostRefund")
 
 @_attrs_define
 class RefundPostRefund:
-    """Datos para reversar un pago.
+    """Datos para solicitar la devolución de un pago.
 
     Attributes:
-        type_ (RefundPostRefundType): Tipo de reversa. `full` reversa el monto completo reversable del pago; `partial`
-            reversa el monto indicado en `amount`. Example: partial.
-        payment_id (str): Identificador del pago a reversar. Example: xsthgfkmvyvb.
-        amount (str | Unset): El monto a reversar. Obligatorio cuando `type` es `partial`; no puede ser utilizado cuando
+        type_ (RefundPostRefundType): Tipo de devolución. `full` devuelve el monto completo disponible para devolver del
+            pago; `partial` devuelve el monto indicado en `amount`. Example: partial.
+        payment_id (str): Identificador del pago a devolver. Example: xsthgfkmvyvb.
+        amount (str | Unset): El monto a devolver. Obligatorio cuando `type` es `partial`; no puede ser utilizado cuando
             `type` es `full`. Sin separador de miles y usando '.' como separador de decimales. Hasta el número de decimales
-            que admita la moneda. No puede superar el saldo reversable del pago. Example: 1000.
+            que admita la moneda. No puede superar el saldo del pago disponible para devolver. Example: 1000.
     """
 
     type_: RefundPostRefundType
