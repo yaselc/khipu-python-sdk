@@ -7,8 +7,61 @@ https://semver.org/
 
 ## [Unreleased]
 
+Adopts the Automatic Payments OpenAPI document Khipu republished after the
+2026-08-28 revision this SDK had pinned. One upstream document carries the
+fixes for both #10 (subscription status contract) and #9
+(`max_amount_per_charge`), so they land together.
+
+### Fixed
+
+- **PAC subscription retrieval raised on valid provider responses (#10).**
+  Observed against the live developer-mode API in parle-cl/telemaco#377:
+  - a pre-signing subscription with `status: "PENDING"` raised
+    `ValueError: 'PENDING' is not a valid SubscriptionStatusStatus`;
+  - a post-signing subscription that omitted `customer_bank_code` raised
+    `KhipuResponseError (KeyError: 'customer_bank_code')`.
+
+  Khipu's current document resolves both: `PENDING` is a declared status, and
+  `customer_bank_code` has been removed from the schema entirely. It also adds
+  `DISCARDED`, which would have caused the identical enum failure on an
+  unsubscribed mandate.
+- **`create_charge` could not read a successful charge.** Khipu now documents
+  `POST /v1/automatic-payment/charge-intent` as `201 Created`; the generated
+  client parsed only `200`, so a successful charge surfaced as
+  `KhipuResponseError: "success status with no usable body"`. This had not been
+  hit in practice because no PAC charge had been attempted yet.
+
 ### Added
-- _TBD_
+
+- **`max_amount_per_charge` (#9)** is now a required, typed parameter of
+  `create_subscription`, matching Khipu's required field. It is validated
+  against the currency's minor-unit scale like `max_amount`.
+- `AutomaticSubscriptionStatus` now carries `developer` and
+  `service_reference`. Khipu returns `service_reference` as an empty string
+  until the customer signs; `""` is passed through unchanged and never rewritten
+  to `None`.
+- Charge rejections (`422`) are raised as `KhipuApiError` with Khipu's
+  `error_message` as the message and `error_code` reachable through `payload`.
+- The generated client now covers `DELETE /v1/automatic-payment/subscription/{id}`
+  (unsubscribe). It is deliberately **not** exposed on `KhipuClient`: the
+  operation is irreversible and exposing it is a separate API-design decision.
+
+### Changed
+
+- `create_subscription` requires `max_amount_per_charge`. **Breaking** for
+  callers of 0.2.0.
+- `AutomaticSubscriptionStatus` gained `developer` and `service_reference`
+  before `raw`. Keyword construction and attribute reads are unaffected;
+  positional construction of this result type would be.
+- A 2xx the generated client does not enumerate is now parsed by the facade
+  when the endpoint's success model is known, instead of being reported as an
+  unusable body. This provider has twice served responses its own schema
+  contradicted; a status-code change should not cost the caller a result Khipu
+  did return.
+- `create_charge` keeps `body`, `custom` and `transaction_id` as required
+  parameters even though Khipu removed them from `ChargeRequest`'s required
+  list. They are the merchant-side correlation fields needed to reconcile a
+  charge, and sending them is always valid.
 
 ## [0.2.0] - 2026-08-28
 

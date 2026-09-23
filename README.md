@@ -389,7 +389,8 @@ reaches you unchanged instead of raising.
 subscription = client.create_subscription(
     name="Jane Doe",
     email="jane.doe@example.com",
-    max_amount=Decimal("50000"),
+    max_amount=Decimal("50000"),          # monthly cap
+    max_amount_per_charge=Decimal("20000"),  # per-charge cap; required by Khipu
     currency="CLP",
     notify_url="https://your-app.example.com/pac/notify/",
     return_url="https://your-app.example.com/pac/return/",
@@ -416,6 +417,62 @@ charge = client.create_charge(
 The charge payload carries no currency — it is inherited from the subscription —
 so pass `currency` if you want minor-unit validation applied to `amount`.
 
+#### Subscription ids are opaque
+
+`subscription_id` is an **opaque provider string**. Khipu's schema example shows
+a UUID, but the live API issues short mixed-case alphanumeric tokens such as
+`7Kp2R9xTmQ4b`. The SDK imposes no syntax on it, and neither should you: store
+it as text, and never validate, normalise or parse it as a UUID.
+
+#### Subscription lifecycle
+
+`get_subscription` returns Khipu's own `status` as a plain string:
+
+| `status` | Meaning |
+|---|---|
+| `PENDING` | Created; the customer has not signed the bank mandate yet. |
+| `SIGNED` | The mandate was signed. |
+| `ENABLED` | The mandate is active. **Only this state permits a charge.** |
+| `DISABLED` | The mandate is not usable. |
+| `DISCARDED` | The subscription was unsubscribed. Not reversible. |
+
+```python
+status = client.get_subscription(subscription_id=subscription.subscription_id)
+
+if status.status == "ENABLED":
+    ...  # safe to charge
+```
+
+Two things to know about this endpoint:
+
+- **`service_reference` comes back empty until the customer signs.** Khipu
+  returns `""`, not `null` and not a missing key. The SDK passes that through
+  unchanged: `""` is a value Khipu sent, and is never rewritten to `None`.
+- **Khipu's `notify_url` callback is not authoritative.** The POST Khipu sends
+  when the customer signs — or when a subscription is unsubscribed — carries
+  `subscription_id` and a lowercase `status` (`"enabled"` / `"discarded"`),
+  with no signature, no token and no provider-authenticated field. Anyone can
+  send it. Treat it as a hint to call `get_subscription`, which is
+  authenticated, and decide on that result.
+
+#### Charge rejections
+
+`create_charge` succeeds on Khipu's documented `201 Created`. A refused charge
+comes back as `422` with Khipu's own reason, raised as `KhipuApiError`:
+
+```python
+try:
+    charge = client.create_charge(...)
+except KhipuApiError as exc:
+    if exc.status_code == 422:
+        code = exc.payload["error_code"]  # e.g. MAX_AMOUNT_PER_CHARGE_EXCEEDED
+```
+
+Khipu documents `MAX_AMOUNT_PER_CHARGE_EXCEEDED`, `MAX_MONTHLY_AMOUNT_EXCEEDED`,
+`SUBSCRIPTION_NOT_CHARGEABLE`, `CURRENCY_MISMATCH`, `INVALID_AMOUNT`,
+`IDEMPOTENCY_KEY_REUSED`, `INVALID_PAYLOAD` and `MERCHANT_ID_NOT_RESOLVED`.
+`exc.message` carries Khipu's `error_message` text.
+
 ## Implemented operations
 
 | Method | HTTP | Endpoint |
@@ -430,7 +487,9 @@ Authentication is a single static API key sent as the `x-api-key` header on
 every request. Khipu API v3 uses no request signing.
 
 The generated clients under `generated/` cover more of Khipu's surface than the
-facade deliberately exposes: cancelling a payment, `POST /v3/payments/{id}/void`,
+facade deliberately exposes: unsubscribing a PAC subscription
+(`DELETE /v1/automatic-payment/subscription/{id}`, an irreversible operation),
+cancelling a payment, `POST /v3/payments/{id}/void`,
 `POST /v3/refunds`, `GET /v3/refund-wallet/balance`, `GET /v3/banks`,
 `GET /v3/merchants/{id}/paymentMethods`, `GET /v3/predict`, and the receiver
 endpoints. They are regenerated and kept in sync, but are not part of the
