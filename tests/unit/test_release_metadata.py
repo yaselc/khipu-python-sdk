@@ -15,7 +15,6 @@ These tests are cheap and offline: they only read files in the repository.
 from __future__ import annotations
 
 import re
-import tomllib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -27,8 +26,20 @@ README = REPO / "README.md"
 RELEASE_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})$", re.M)
 
 
+#: The ``version = "..."`` line inside the ``[project]`` table. Read with a
+#: regex rather than ``tomllib``, which is stdlib only from Python 3.11 while
+#: this package supports 3.10.
+PROJECT_TABLE = re.compile(r"^\[project\]$(.*?)(?=^\[)", re.M | re.S)
+VERSION_LINE = re.compile(r'^version\s*=\s*"([^"]+)"', re.M)
+
+
 def declared_version() -> str:
-    return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["version"]
+    table = PROJECT_TABLE.search(PYPROJECT.read_text(encoding="utf-8"))
+    assert table is not None, "pyproject.toml has no [project] table"
+
+    version = VERSION_LINE.search(table.group(1))
+    assert version is not None, "pyproject.toml [project] declares no version"
+    return version.group(1)
 
 
 def unreleased_section() -> str:
