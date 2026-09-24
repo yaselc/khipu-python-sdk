@@ -13,6 +13,7 @@ import inspect
 import json
 from decimal import Decimal
 
+import httpx
 import pytest
 
 from khipu_sdk import (
@@ -20,6 +21,7 @@ from khipu_sdk import (
     KhipuClient,
     KhipuConfig,
     KhipuResponseError,
+    KhipuTimeoutError,
     KhipuValidationError,
 )
 
@@ -386,6 +388,114 @@ class TestOptionalChargeFields:
             "custom": "INVOICE-2026-0001",
             "notify_url": "https://example.com/pac/notify",
         }
+
+
+class TestChargeNotifyApiVersion:
+    """``notify_api_version`` selects Khipu's notification contract (#14).
+
+    It is optional in Khipu's ``ChargeRequest`` and the SDK keeps it optional:
+    the application chooses its notification contract, the SDK never picks one.
+    A value is sent exactly as given; ``None`` means the key is not sent at all.
+    """
+
+    #: The request body a minimal charge sent before this parameter existed.
+    MINIMAL_BODY = {
+        "subscription_id": "sub-1",
+        "amount": 20000,
+        "subject": "Monthly fee",
+        "error_response_url": "https://example.com/pac/error",
+        "notify_url": "https://example.com/pac/notify",
+    }
+
+    def minimal(self, client, **overrides):
+        kwargs = dict(
+            subscription_id="sub-1",
+            amount=Decimal("20000"),
+            subject="Monthly fee",
+            error_response_url="https://example.com/pac/error",
+            notify_url="https://example.com/pac/notify",
+        )
+        kwargs.update(overrides)
+        return client.create_charge(**kwargs)
+
+    def sent(self, httpx_mock) -> dict:
+        requests = httpx_mock.get_requests()
+        assert len(requests) == 1
+        return json.loads(requests[0].content)
+
+    def test_it_is_an_explicit_optional_parameter_defaulting_to_none(self):
+        parameter = inspect.signature(KhipuClient.create_charge).parameters[
+            "notify_api_version"
+        ]
+
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        assert parameter.default is None
+
+    @pytest.mark.parametrize(
+        "name", ["subscription_id", "amount", "subject", "error_response_url", "notify_url"]
+    )
+    def test_the_required_charge_fields_stay_required(self, name):
+        parameter = inspect.signature(KhipuClient.create_charge).parameters[name]
+
+        assert parameter.default is inspect.Parameter.empty
+
+    def test_extra_fields_is_still_accepted(self):
+        kinds = {
+            p.kind for p in inspect.signature(KhipuClient.create_charge).parameters.values()
+        }
+
+        assert inspect.Parameter.VAR_KEYWORD in kinds
+
+    def test_a_supplied_version_is_serialised_unchanged(self, client, httpx_mock):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        result = self.minimal(client, notify_api_version="3.0")
+
+        assert result.payment_id == "charge-1"
+        assert self.sent(httpx_mock) == {**self.MINIMAL_BODY, "notify_api_version": "3.0"}
+
+    @pytest.mark.parametrize("value", ["1.3", "3.0", "", "4.0-future"])
+    def test_the_sdk_does_not_restrict_the_value(self, client, httpx_mock, value):
+        """Khipu's schema declares a free string; the SDK neither validates nor maps it."""
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        self.minimal(client, notify_api_version=value)
+
+        assert self.sent(httpx_mock)["notify_api_version"] == value
+
+    def test_omitting_it_sends_no_key_and_no_default(self, client, httpx_mock):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        self.minimal(client)
+
+        assert self.sent(httpx_mock) == self.MINIMAL_BODY
+
+    def test_explicit_none_sends_no_key_rather_than_null(self, client, httpx_mock):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        self.minimal(client, notify_api_version=None)
+
+        assert self.sent(httpx_mock) == self.MINIMAL_BODY
+
+    def test_existing_charge_fields_are_unchanged_alongside_it(self, client, httpx_mock):
+        httpx_mock.add_response(url=CHARGE_URL, status_code=201, json=CHARGE_CREATED)
+        charge(client, notify_api_version="3.0")
+
+        assert self.sent(httpx_mock) == {
+            "subscription_id": "sub-1",
+            "amount": 20000,
+            "subject": "Monthly fee",
+            "body": "Subscription monthly charge",
+            "transaction_id": "INVOICE-2026-0001",
+            "error_response_url": "https://example.com/pac/error",
+            "custom": "INVOICE-2026-0001",
+            "notify_url": "https://example.com/pac/notify",
+            "notify_api_version": "3.0",
+        }
+
+    def test_a_timeout_is_not_retried(self, client, httpx_mock):
+        httpx_mock.add_exception(httpx.ReadTimeout("read timed out"), url=CHARGE_URL)
+
+        with pytest.raises(KhipuTimeoutError):
+            self.minimal(client, notify_api_version="3.0")
+
+        assert len(httpx_mock.get_requests()) == 1
 
 
 class TestChargeSuccessStatusIsNotOpenEnded:

@@ -506,6 +506,7 @@ class KhipuClient:
         custom: Optional[str] = None,
         transaction_id: Optional[str] = None,
         currency: Optional[str] = None,
+        notify_api_version: Optional[str] = None,
         **extra_fields: Any,
     ) -> AutomaticChargeCreateResult:
         """Charge a PAC subscription (``POST /v1/automatic-payment/charge-intent``).
@@ -531,6 +532,12 @@ class KhipuClient:
         subscription -- so pass ``currency`` if you want the SDK to apply
         minor-unit validation to ``amount``. It is used for local validation
         only and is never sent to Khipu.
+
+        ``notify_api_version`` selects the contract Khipu uses for the
+        ``notify_url`` callback. It is optional, as in Khipu's schema, and the
+        SDK chooses no default: a value is sent exactly as given and ``None``
+        leaves the field out. An application that needs signed JSON
+        notifications requests ``"3.0"`` explicitly.
         """
         client = self._require(self._automatic, name="Automatic Payments")
         if currency is not None:
@@ -549,6 +556,7 @@ class KhipuClient:
             ("body", body),
             ("custom", custom),
             ("transaction_id", transaction_id),
+            ("notify_api_version", notify_api_version),
         ):
             if optional_value is not None:
                 payload[key] = optional_value
