@@ -10,6 +10,45 @@ https://semver.org/
 ### Added
 - _TBD_
 
+## [0.3.1] - 2026-09-23
+
+### Fixed
+
+- **A PAC payment could not be retrieved with `get_instant_payment` (#15).**
+  Observed against the live developer-mode API in parle-cl/telemaco#377:
+  `GET /v3/payments/{id}` for an Automatic Payments charge returned
+  `payment_method: "direct_debit"`, which Khipu's published Instant Payments
+  document does not declare (it still lists only `regular_transfer`,
+  `simplified_transfer` and `not_available`). The generated parser raised
+  `ValueError`, so the call failed with `KhipuResponseError` and none of the
+  verification fields could be read.
+
+  `direct_debit` is now accepted for that field on that endpoint only, as a
+  typed `PaymentGetPaymentPaymentMethod.DIRECT_DEBIT` member reachable through
+  `raw`. `InstantPaymentStatus` is unchanged. Any other undeclared
+  `payment_method`, and any undeclared `status`, `status_detail` or
+  `funds_source`, is still reported as `KhipuResponseError`.
+
+### Added
+
+- `tools/spec_compat.py`, a generation-time compatibility overlay.
+  `make generate-instant` now generates from a derived copy of the Instant
+  Payments spec under `build/openapi/`; the committed spec is still Khipu's
+  document byte for byte and its sha256 lock is unchanged. The overlay's single
+  entry is strict: generation fails if Khipu publishes `direct_debit` itself
+  (the entry is then obsolete and must be deleted) or changes the enum in any
+  other way. `make check-spec-compat` runs the same check without writing
+  anything.
+- CI fails when committed `generated/` differs from a fresh
+  `make generate-all`, and the `spec-drift` watch checks the overlay against
+  the freshly published spec.
+
+### Notes
+
+- This is a deliberate, temporary divergence from Khipu's published schema,
+  kept only until Khipu documents `direct_debit`. No retry behaviour changed and
+  nothing new is logged.
+
 ## [0.3.0] - 2026-09-22
 
 Adopts the Automatic Payments OpenAPI document Khipu republished after the
