@@ -10,6 +10,33 @@ https://semver.org/
 ### Added
 - _TBD_
 
+## [0.3.2] - 2026-09-23
+
+### Added
+
+- **`create_charge` accepts an explicit, optional `notify_api_version` (#14).**
+  It selects the contract Khipu uses for the charge's `notify_url` callback.
+  A supplied value is sent unchanged as `"notify_api_version"`; omitting it, or
+  passing `None`, leaves the key out of the request entirely. The SDK does
+  **not** default it to `"3.0"` or to anything else, and does not restrict the
+  value beyond Khipu's own free-string schema. Applications that rely on signed
+  JSON notifications should request `"3.0"` explicitly.
+
+### Fixed
+
+- `notify_api_version=None` passed through `**extra_fields` used to be sent as
+  `"notify_api_version": null`. As a named parameter, `None` now means
+  omission, like the other optional charge fields.
+
+### Notes
+
+- Callers already passing `notify_api_version="3.0"` through `**extra_fields`
+  keep the same call shape and the same request body. `**extra_fields` is
+  unchanged.
+- Retry behaviour (none), success-status handling (`201`, plus `200` for
+  compatibility) and charge correlation fields are unchanged. No generated code
+  or OpenAPI document changed.
+
 ## [0.3.1] - 2026-09-23
 
 ### Fixed
