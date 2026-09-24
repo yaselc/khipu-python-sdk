@@ -83,7 +83,7 @@ plain Git install is fully functional.
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.1
+khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.2
 ```
 
 Or in `pyproject.toml`:
@@ -91,7 +91,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.1",
+  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.2",
 ]
 ```
 
@@ -460,6 +460,8 @@ charge = client.create_charge(
     body="Subscription monthly charge",
     transaction_id="INVOICE-2026-0001",
     custom="INVOICE-2026-0001",
+    # Optional; selects Khipu's notification contract. No SDK default:
+    notify_api_version="3.0",
     # Optional, local validation only; never sent to Khipu:
     currency="CLP",
 )
@@ -474,6 +476,16 @@ SDK never sends `null` and never invents a value. They are still the only
 merchant-side fields Khipu echoes back, so if you reconcile charges against your
 own records, require them in **your** service layer — that is your policy to
 enforce, not one the SDK imposes on every consumer.
+
+`notify_api_version` selects the notification contract Khipu uses when it
+calls `notify_url` for this charge. It is optional, as in Khipu's schema, and
+the SDK **does not choose a default**: a value is sent exactly as given, and
+omitting it (or passing `None`) leaves the field out of the request, so Khipu
+applies whatever it does for an unspecified version. Khipu's schema types it as
+a free string, so the SDK does not restrict the value either. If your
+application relies on signed JSON notifications (Khipu's notification API
+3.0), request `"3.0"` explicitly rather than depending on the unspecified
+behaviour, and verify the callbacks your own merchant account receives.
 
 `transaction_id` is **not** an idempotency key. Khipu's `ChargeError` vocabulary
 mentions `IDEMPOTENCY_KEY_REUSED`, but the published `ChargeRequest` defines no
