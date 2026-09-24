@@ -17,6 +17,11 @@ AUTOMATIC_SPEC := $(OPENAPI_DIR)/khipu-automatic-payments.yaml
 INSTANT_SPEC_URL := https://docs.khipu.com/_bundle/apis/v3/instant-payments/openapi.yaml?download
 AUTOMATIC_SPEC_URL := https://docs.khipu.com/_bundle/apis/v1/automatic-payments/openapi.yaml?download
 
+# Instant Payments is generated from a derived copy of the committed spec with
+# the compatibility overlay in tools/spec_compat.py applied (#15). The committed
+# spec itself stays verbatim; the derived copy is a build artifact.
+INSTANT_COMPAT_SPEC := build/openapi/khipu-instant-payments.yaml
+
 # Generated clients output
 INSTANT_OUT := $(GENERATED_DIR)/instant_payments
 AUTOMATIC_OUT := $(GENERATED_DIR)/automatic_payments
@@ -40,6 +45,7 @@ help:
 	@echo "  make generate-instant       Generate Instant Payments client"
 	@echo "  make generate-automatic     Generate Automatic Payments client"
 	@echo "  make generate-all           Generate all clients"
+	@echo "  make check-spec-compat      Verify the Instant Payments overlay still applies"
 	@echo ""
 	@echo "Development:"
 	@echo "  make install                Install SDK in editable mode"
@@ -102,13 +108,19 @@ ensure-generated-package:
 	@echo "Ensured $(GENERATED_DIR)/__init__.py (required for packaging)"
 
 
+.PHONY: check-spec-compat
+check-spec-compat:
+	$(PYTHON) tools/spec_compat.py --check $(INSTANT_SPEC)
+
+
 .PHONY: generate-instant
 generate-instant:
 	@echo "Generating Instant Payments client..."
+	$(PYTHON) tools/spec_compat.py $(INSTANT_SPEC) $(INSTANT_COMPAT_SPEC)
 	rm -rf $(INSTANT_OUT)
 	mkdir -p $(INSTANT_OUT)
 	$(OPENAPI_CLIENT) generate \
-		--path $(INSTANT_SPEC) \
+		--path $(INSTANT_COMPAT_SPEC) \
 		--output-path $(INSTANT_OUT) \
 		--overwrite \
 		--meta none

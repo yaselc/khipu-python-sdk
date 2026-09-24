@@ -50,6 +50,18 @@ jobs:
         run: |
           make generate-all
 
+      # generated/ is committed and shipped in the wheel, so it must be exactly
+      # what the pipeline produces -- including the Instant Payments
+      # compatibility overlay (tools/spec_compat.py, #15). A hand edit, or a
+      # regeneration that bypassed the overlay, fails here.
+      - name: Committed generated/ matches a fresh regeneration
+        run: |
+          if [ -n "$(git status --porcelain -- generated/)" ]; then
+            git status --short -- generated/
+            git diff -- generated/
+            exit 1
+          fi
+
       - name: Check (lint + typecheck + tests)
         run: |
           make check
@@ -154,4 +166,10 @@ jobs:
             git diff -- openapi/
             echo "::endgroup::"
           fi
+          overlay=0
+          if ! make check-spec-compat; then
+            echo "::warning title=Khipu OpenAPI compatibility overlay::The published Instant Payments spec no longer matches what tools/spec_compat.py expects. If Khipu now declares direct_debit, delete the #15 overlay entry when adopting the spec."
+            overlay=1
+          fi
           make verify-spec-lock
+          exit "$overlay"

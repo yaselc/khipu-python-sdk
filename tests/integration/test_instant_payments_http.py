@@ -757,3 +757,80 @@ class TestInstantPaymentsSuccessStatusIsUnchanged:
 
         with pytest.raises(KhipuResponseError):
             client.get_instant_payment(payment_id=PAYMENT_ID)
+
+
+class TestDirectDebitPaymentMethod:
+    """``GET /v3/payments/{id}`` for a PAC charge reports ``direct_debit`` (#15).
+
+    Observed live in parle-cl/telemaco#377: a developer-mode PAC charge,
+    retrieved through this endpoint, came back with
+    ``payment_method: "direct_debit"``. Khipu's published Instant Payments
+    document still declares only ``regular_transfer``, ``simplified_transfer``
+    and ``not_available``, so a client generated verbatim from it raised
+    ``ValueError`` and the payment could not be read at all.
+
+    The SDK adds exactly that one value through a generation-time overlay
+    (``tools/spec_compat.py``); the committed upstream spec stays verbatim.
+    Everything else about the enum stays strict: these tests pin both halves.
+    """
+
+    def get(self, client, httpx_mock, **overrides):
+        httpx_mock.add_response(
+            url=f"{PAYMENTS_URL}/{PAYMENT_ID}", json=get_response(**overrides)
+        )
+        return client.get_instant_payment(payment_id=PAYMENT_ID)
+
+    def test_a_pac_payment_reporting_direct_debit_is_retrieved(self, client, httpx_mock):
+        status = self.get(client, httpx_mock, payment_method="direct_debit")
+
+        assert status.payment_id == PAYMENT_ID
+        assert status.transaction_id == "CONTRIB-9f2c"
+        assert status.custom == "CONTRIB-9f2c-custom"
+        assert status.amount == Decimal("10000")
+        assert status.currency == "CLP"
+        assert status.status == "done"
+        assert status.status_detail == "normal"
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_direct_debit_is_a_typed_member_not_an_open_string(self, client, httpx_mock):
+        status = self.get(client, httpx_mock, payment_method="direct_debit")
+
+        assert type(status.raw.payment_method).__name__ == "PaymentGetPaymentPaymentMethod"
+        assert status.raw.payment_method.value == "direct_debit"
+
+    @pytest.mark.parametrize(
+        "value", ["regular_transfer", "simplified_transfer", "not_available"]
+    )
+    def test_every_published_value_keeps_its_typed_behaviour(
+        self, client, httpx_mock, value
+    ):
+        status = self.get(client, httpx_mock, payment_method=value)
+
+        assert type(status.raw.payment_method).__name__ == "PaymentGetPaymentPaymentMethod"
+        assert status.raw.payment_method.value == value
+
+    def test_an_unrelated_unknown_payment_method_is_still_contract_drift(
+        self, client, httpx_mock
+    ):
+        with pytest.raises(KhipuResponseError) as exc:
+            self.get(client, httpx_mock, payment_method="future_unknown_method")
+
+        assert not isinstance(exc.value, KhipuApiError)
+        assert "PaymentGetPaymentPaymentMethod" in str(exc.value)
+        assert "future_unknown_method" in str(exc.value)
+
+    @pytest.mark.parametrize(
+        "field, enum_name",
+        [
+            ("status", "PaymentGetPaymentStatus"),
+            ("status_detail", "PaymentGetPaymentStatusDetail"),
+            ("funds_source", "PaymentGetPaymentFundsSource"),
+        ],
+    )
+    def test_the_allowance_does_not_open_any_other_enum(
+        self, client, httpx_mock, field, enum_name
+    ):
+        with pytest.raises(KhipuResponseError) as exc:
+            self.get(client, httpx_mock, **{field: "direct_debit"})
+
+        assert enum_name in str(exc.value)

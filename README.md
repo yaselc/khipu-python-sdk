@@ -83,7 +83,7 @@ plain Git install is fully functional.
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.0
+khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.1
 ```
 
 Or in `pyproject.toml`:
@@ -91,7 +91,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.0",
+  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.1",
 ]
 ```
 
@@ -413,6 +413,26 @@ This vocabulary is Khipu's and can grow. The facade passes `status_detail`
 through as a plain string rather than an SDK enum, so a value Khipu adds later
 reaches you unchanged instead of raising.
 
+#### `payment_method` and PAC charges
+
+A PAC charge (`create_charge`) is itself a Khipu payment, read back with
+`get_instant_payment(payment_id=...)`. For those, the live API returns
+`payment_method: "direct_debit"`, a value Khipu's published Instant Payments
+document does **not** declare: it lists only `regular_transfer`,
+`simplified_transfer` and `not_available`. A client generated verbatim from that
+document could not read a PAC payment at all
+([#15](https://github.com/parle-cl/khipu-python-sdk/issues/15)).
+
+The SDK therefore carries one deliberate, narrow compatibility allowance:
+`direct_debit` is accepted for `payment_method` on `GET /v3/payments/{id}` and
+nowhere else. `payment_method` is not promoted onto `InstantPaymentStatus`; it is
+reachable through `raw` as the typed `PaymentGetPaymentPaymentMethod` enum, which
+now includes `DIRECT_DEBIT`. Any *other* undeclared `payment_method` value, and
+any undeclared value in `status`, `status_detail` or `funds_source`, still
+raises `KhipuResponseError`, because that is provider-contract drift someone
+should look at. See [Compatibility overlay](#compatibility-overlay) for how
+the allowance is built and when it goes away.
+
 ### Automatic Payments (PAC)
 
 ```python
@@ -609,6 +629,34 @@ change the pin, run `make generate-all`, and review the diff.
 
 Never edit files under `generated/`. If behaviour needs to change, change the
 `khipu_sdk` facade.
+
+### Compatibility overlay
+
+Rarely, the live API returns a value Khipu's own document does not declare.
+The committed spec must stay Khipu's document byte for byte, and `generated/`
+must stay reproducible, so neither is edited. Instead, `make generate-instant`
+runs `tools/spec_compat.py`, which writes a derived copy of the Instant Payments
+spec to `build/openapi/` and generates from that.
+
+The overlay currently has one entry: `direct_debit` is added to
+`payment-get-payment.payment_method` (#15). The derived copy differs from
+Khipu's document by exactly that one enum line, and `generated/` by exactly
+one enum member.
+
+Each entry records the exact enum Khipu publishes today and refuses to apply
+to anything else:
+
+- if Khipu publishes the value itself, `make generate-all` fails and says the
+  entry is obsolete. Delete the entry, regenerate, and remove the
+  `TestUpstreamStillOmitsDirectDebit` guard in
+  `tests/unit/test_instant_payments_spec_compat.py`;
+- if the enum changes any other way, generation fails until the entry is
+  reconciled with the new document;
+- the non-blocking `spec-drift` job runs `make check-spec-compat` against the
+  freshly published spec, so either case is reported before anyone adopts it.
+
+CI also fails when committed `generated/` differs from a fresh
+`make generate-all`, so the overlay can be neither bypassed nor hand-applied.
 
 ## Development
 
