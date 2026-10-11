@@ -752,6 +752,19 @@ action, and both paths below build a fresh wheel and sdist, run
 `tools/check_dist.py` and smoke-test both artifacts from a clean install before
 uploading anything.
 
+**Publication is currently blocked.** `tools/check_dist.py --tag`, which both
+publish workflows run, refuses to publish until both Issue #18 publication
+gates are resolved:
+
+- `LICENSE` names its confirmed copyright holder (the template placeholder is
+  still there); and
+- `PUBLICATION_GATES.toml` records `approved = true`, with evidence, for an
+  explicit basis to redistribute Khipu's OpenAPI documents and the clients
+  generated from them. It is `approved = false`: no such basis has been
+  established.
+
+Either change is an owner decision made in its own reviewed pull request.
+
 1. Bump `project.version` in `pyproject.toml` and move the changelog entries into
    a dated `## [X.Y.Z] - YYYY-MM-DD` section in the same pull request.
 2. **TestPyPI (optional rehearsal).** Run the *Publish to TestPyPI* workflow

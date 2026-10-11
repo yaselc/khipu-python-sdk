@@ -272,3 +272,36 @@ def test_publish_workflows_build_and_check_through_the_shared_workflow():
     assert 'tools/check_dist.py dist --tag "$TAG"' in shared
     assert "twine check --strict" in shared
     assert "git merge-base --is-ancestor HEAD origin/master" in shared
+
+
+def test_no_publish_path_can_skip_the_release_check():
+    """Upload only artifacts that passed ``check_dist.py --tag`` (Issue #18 gates).
+
+    - every workflow that can upload to an index is one of the two publish
+      workflows, and its only publishing job needs the shared build;
+    - the publish job never builds anything itself, it only downloads the
+      artifact the shared build uploaded;
+    - in build-dist.yml the release check is unconditional, cannot be
+      soft-failed, and runs before the artifact is uploaded.
+    """
+    for workflow in (TESTPYPI_WORKFLOW, PYPI_WORKFLOW):
+        text = workflow.read_text("utf-8")
+        publish = job(workflow, "publish")
+
+        assert text.count("pypa/gh-action-pypi-publish") == 1, workflow.name
+        assert "pypa/gh-action-pypi-publish" in publish, workflow.name
+        assert re.search(r"^    needs: build$", publish, re.M), workflow.name
+        assert "continue-on-error" not in text, workflow.name
+        assert "always()" not in text, workflow.name
+        for builder in ("python -m build", "make build", "make smoke-dist", "twine upload"):
+            assert builder not in publish, f"{workflow.name} publish job runs {builder!r}"
+        assert "uses: actions/download-artifact@" in publish, workflow.name
+
+    shared = BUILD_WORKFLOW.read_text("utf-8")
+    assert "continue-on-error" not in shared
+    check = shared.index('tools/check_dist.py dist --tag "$TAG"')
+    upload = shared.index("uses: actions/upload-artifact@")
+    assert check < upload, "the artifact must be uploaded only after the release check"
+
+    step = shared[shared.rindex("- name:", 0, check):check]
+    assert "if:" not in step, "the release check must not be conditional"

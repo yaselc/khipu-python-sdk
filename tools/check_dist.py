@@ -12,8 +12,10 @@ Run against a freshly built ``dist/`` (``make build``). It fails when:
 - either artifact contains anything outside the explicit allowlist below --
   the specs, tests, tools, CI config, local environment files, caches,
   credentials or certificates are not part of the distribution;
-- the license placeholder is still in ``LICENSE`` while ``--tag`` is given,
-  i.e. while building something that is about to be published.
+- ``--tag`` is given, i.e. something is about to be published, and a
+  publication gate from Issue #18 is still closed: ``LICENSE`` still has the
+  template copyright placeholder, or ``PUBLICATION_GATES.toml`` does not record
+  ``approved = true`` (with evidence) for the Khipu redistribution gate.
 
 Only the standard library is used, and only offline file reads are made.
 """
@@ -38,6 +40,17 @@ VERSION_LINE = re.compile(r'^version\s*=\s*"([^"]+)"', re.M)
 #: The unfilled MIT template line. Publishing with it would ship a license
 #: that names no copyright holder (Issue #18, license gate).
 LICENSE_PLACEHOLDER = "<COPYRIGHT HOLDER>"
+
+#: Owner-controlled publication gate state (Issue #18). Read with strict
+#: regexes rather than ``tomllib`` (3.11+ only), and fail closed: a missing
+#: file, table or key, or any value other than the literal ``true``, keeps the
+#: gate closed.
+GATES_FILE = "PUBLICATION_GATES.toml"
+REDISTRIBUTION_TABLE = re.compile(
+    r"^\[khipu_redistribution\][ \t]*$(.*?)(?=^\[|\Z)", re.M | re.S
+)
+APPROVED_LINE = re.compile(r"^approved[ \t]*=[ \t]*(\S+)[ \t]*(#.*)?$", re.M)
+EVIDENCE_LINE = re.compile(r'^evidence[ \t]*=[ \t]*"([^"]*)"[ \t]*(#.*)?$', re.M)
 
 #: Packages the wheel must ship, mirrored file for file from the source tree.
 PACKAGES = ("khipu_sdk", "generated")
@@ -160,6 +173,34 @@ def check_metadata(kind: str, raw: str, version: str) -> list[str]:
     return problems
 
 
+def publication_gate_problems(repo: Path = REPO) -> list[str]:
+    """Why ``repo`` may not be published yet; empty when every gate is open."""
+    problems = []
+
+    if LICENSE_PLACEHOLDER in (repo / "LICENSE").read_text(encoding="utf-8"):
+        problems.append(
+            "LICENSE still contains the template placeholder "
+            f"{LICENSE_PLACEHOLDER!r}; the copyright holder must be confirmed "
+            "before publishing (Issue #18)"
+        )
+
+    blocked = (
+        "Khipu redistribution permission is not approved; publication is "
+        f"blocked by Issue #18 ({GATES_FILE} [khipu_redistribution])"
+    )
+    gates = repo / GATES_FILE
+    table = REDISTRIBUTION_TABLE.search(
+        gates.read_text(encoding="utf-8") if gates.is_file() else ""
+    )
+    approved = APPROVED_LINE.findall(table.group(1)) if table else []
+    evidence = EVIDENCE_LINE.findall(table.group(1)) if table else []
+    if len(approved) != 1 or approved[0][0] != "true":
+        problems.append(blocked)
+    elif len(evidence) != 1 or not evidence[0][0].strip():
+        problems.append(f"{blocked}: approved = true but no evidence is recorded")
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("dist", nargs="?", default="dist", type=Path)
@@ -178,12 +219,7 @@ def main() -> int:
                 f"tag {args.tag!r} does not match project.version {version!r} "
                 f"(expected 'v{version}')"
             )
-        if LICENSE_PLACEHOLDER in (REPO / "LICENSE").read_text(encoding="utf-8"):
-            problems.append(
-                "LICENSE still contains the template placeholder "
-                f"{LICENSE_PLACEHOLDER!r}; the copyright holder must be confirmed "
-                "before publishing (Issue #18)"
-            )
+        problems += publication_gate_problems()
 
     wheels = sorted(args.dist.glob("*.whl"))
     sdists = sorted(args.dist.glob("*.tar.gz"))

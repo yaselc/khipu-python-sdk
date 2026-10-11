@@ -61,8 +61,11 @@ jobs:
         run: |
           make smoke-dist
 
-      # Tag must be exactly v<project.version>, and LICENSE must name its
-      # copyright holder (Issue #18 license gate) before anything is published.
+      # Tag must be exactly v<project.version>, and both Issue #18 publication
+      # gates must be resolved before anything is published: LICENSE names its
+      # copyright holder, and PUBLICATION_GATES.toml approves (with evidence)
+      # redistribution of Khipu's specs and the generated clients. This is the
+      # single check that blocks TestPyPI and PyPI alike.
       - name: Check release tag, version and license
         env:
           TAG: ${{ inputs.tag }}

@@ -30,7 +30,10 @@ byte-for-byte the same code as 0.3.2.
   Both build a fresh wheel and sdist, inspect and smoke-test them, upload with
   PyPI Trusted Publishing (OIDC, no stored token) and then install the uploaded
   release back from the index and smoke-test it. Both refuse to publish while
-  `LICENSE` still carries the template copyright placeholder.
+  either Issue #18 publication gate is closed: `LICENSE` still carries the
+  template copyright placeholder, or the new `PUBLICATION_GATES.toml` does not
+  approve (with evidence) redistribution of Khipu's OpenAPI documents and the
+  generated clients. That gate ships as `approved = false`.
 - **Package metadata for PyPI.** SPDX license expression (`MIT`) with
   `license-files`, maintainer, project URLs, classifiers (Python 3.10–3.12,
   `Typing :: Typed`) and keywords. The build backend floor moves to
