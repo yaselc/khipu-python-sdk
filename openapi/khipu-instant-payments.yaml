@@ -498,6 +498,67 @@ paths:
           description: Not found - Recurso no disponible
         '500':
           description: Internal server error - Servidor no pudo completar la solicitud
+  /v3/predict/all:
+    get:
+      operationId: getPredictAll
+      summary: Get payment prediction for all banks
+      description: >-
+        Predicción acerca del resultado de un pago para cada uno de los bancos
+        disponibles para la cuenta de cobro, sin necesidad de indicar un banco.
+        Permite ofrecerle al pagador solo los bancos con los que el pago podría
+        funcionar.
+
+
+        Los bancos incluidos son los mismos que devuelve `GET /v3/banks`, en el
+        mismo orden. La respuesta incluye todos los bancos, no solo aquellos
+        cuyo resultado es `OK`; el integrador debe filtrar por el campo
+        `result`. Si la cuenta de cobro no tiene bancos disponibles, el arreglo
+        `banks` viene vacío.
+
+
+        Se realiza una predicción por banco, por lo que el tiempo de respuesta
+        crece con la cantidad de bancos disponibles.
+      parameters:
+        - in: query
+          name: payer_email
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Correo electrónico del pagador
+        - in: query
+          name: amount
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Monto del pago
+        - in: query
+          name: currency
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Moneda en formato ISO-4217
+      responses:
+        '200':
+          description: >-
+            Operación exitosa. Devuelve un objeto JSON con la predicción para
+            cada banco disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/predict-get-predict-all'
+        '400':
+          description: Bad request - Solicitud mal formada
+        '401':
+          description: Unauthorized - Credenciales no válidas o faltantes
+        '403':
+          description: Forbidden - Cliente no tiene privilegios
+        '404':
+          description: Not found - Recurso no disponible
+        '500':
+          description: Internal server error - Servidor no pudo completar la solicitud
   /v3/receivers:
     post:
       operationId: postReceiver
@@ -1457,12 +1518,12 @@ components:
           type: string
           description: El resultado de la predicción.
           enum:
-            - ok
-            - new_destinatary_amount_exceeded
-            - max_amount_exceeded
-            - new_destinatary_cool_down
-            - not_available_account
-          example: ok
+            - OK
+            - NEW_DESTINATARY_AMOUNT_EXCEEDED
+            - MAX_AMOUNT_EXCEEDED
+            - NEW_DESTINATARY_COOL_DOWN
+            - NOT_AVAILABLE_ACCOUNT
+          example: OK
         max_amount:
           type: number
           format: double
@@ -1477,6 +1538,38 @@ components:
           format: double
           description: Monto máximo para transferir a un nuevo destinatario.
           example: 100000
+    predict-get-predict-all:
+      type: object
+      description: >-
+        Predicción acerca del resultado de un pago para cada banco disponible
+        para la cuenta de cobro.
+      required:
+        - banks
+      properties:
+        banks:
+          type: array
+          description: >-
+            Arreglo con la predicción para cada banco, en el mismo orden que
+            `GET /v3/banks`. Puede venir vacío si no hay bancos disponibles.
+          items:
+            description: Predicción para un banco.
+            allOf:
+              - type: object
+                required:
+                  - bank_id
+                  - name
+                properties:
+                  bank_id:
+                    type: string
+                    description: >-
+                      Identificador del banco, el mismo que usan `GET /v3/banks`
+                      y `GET /v3/predict`.
+                    example: Bawdf
+                  name:
+                    type: string
+                    description: Nombre del banco.
+                    example: Banco Ejemplo
+              - $ref: '#/components/schemas/predict-get-predict'
     receiver-post-receiver:
       type: object
       description: >-

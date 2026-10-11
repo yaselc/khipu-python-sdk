@@ -603,11 +603,11 @@ facade deliberately exposes: unsubscribing a PAC subscription
 (`DELETE /v1/automatic-payment/subscription/{id}`, an irreversible operation),
 cancelling a payment, `POST /v3/payments/{id}/void`,
 `POST /v3/refunds`, `GET /v3/refund-wallet/balance`, `GET /v3/banks`,
-`GET /v3/merchants/{id}/paymentMethods`, `GET /v3/predict`, and the receiver
-endpoints. They are regenerated and kept in sync, but are not part of the
-supported API and may change shape when the specs are refreshed. Promoting any
-of them onto `KhipuClient` is a deliberate decision, not something to do because
-the generated code exists.
+`GET /v3/merchants/{id}/paymentMethods`, `GET /v3/predict`,
+`GET /v3/predict/all`, and the receiver endpoints. They are regenerated and kept
+in sync, but are not part of the supported API and may change shape when the
+specs are refreshed. Promoting any of them onto `KhipuClient` is a deliberate
+decision, not something to do because the generated code exists.
 
 Note that Khipu marks `POST /v3/payments/{id}/refunds` as obsolete in favour of
 `POST /v3/payments/{id}/void`, and that it now refunds the full amount only.
@@ -626,11 +626,11 @@ These are deliberate boundaries, not gaps waiting to be filled:
   `get_instant_payment()`.
 - **Fee quotation.** *No currently implemented Khipu operation, and no endpoint
   in either vendored spec, returns the merchant processing fee before a payment
-  is created.* `GET /v3/predict` returns payer transfer limits, not fees;
-  `integrator_fee` is a commission you send, not one you read. This SDK does not
-  invent a fee formula. If you need to show a fee before the payer commits, that
-  number has to come from your commercial agreement with Khipu, reconciled later
-  against actual settlement.
+  is created.* `GET /v3/predict` and `GET /v3/predict/all` return payer
+  transfer limits, not fees; `integrator_fee` is a commission you send, not one
+  you read. This SDK does not invent a fee formula. If you need to show a fee
+  before the payer commits, that number has to come from your commercial
+  agreement with Khipu, reconciled later against actual settlement.
 - **Retries.** See [Idempotency](#idempotency-read-this-before-you-retry).
 
 ## OpenAPI specifications and regeneration

@@ -20,6 +20,8 @@ from .payment_post_payment import PaymentPostPayment
 from .payment_post_payment_2 import PaymentPostPayment2
 from .payment_post_payment_currency import PaymentPostPaymentCurrency
 from .predict_get_predict import PredictGetPredict
+from .predict_get_predict_all import PredictGetPredictAll
+from .predict_get_predict_all_banks_item import PredictGetPredictAllBanksItem
 from .predict_get_predict_result import PredictGetPredictResult
 from .receiver_get_receivers import ReceiverGetReceivers
 from .receiver_get_receivers_receivers_item import ReceiverGetReceiversReceiversItem
@@ -50,6 +52,8 @@ __all__ = (
     "PaymentPostPayment2",
     "PaymentPostPaymentCurrency",
     "PredictGetPredict",
+    "PredictGetPredictAll",
+    "PredictGetPredictAllBanksItem",
     "PredictGetPredictResult",
     "ReceiverGetReceivers",
     "ReceiverGetReceiversReceiversItem",
