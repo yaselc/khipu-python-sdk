@@ -1,0 +1,88 @@
+name: Publish to PyPI
+
+# Production publication. The only trigger is a maintainer publishing a GitHub
+# Release; merging or pushing to master never publishes, tags or creates a
+# release. The release tag must be exactly v<project.version> and must point
+# at a commit already on master (checked in build-dist.yml).
+#
+# Publishing uses Trusted Publishing (OIDC): PyPI must list this repository,
+# this workflow file and the `pypi` environment as a trusted publisher. No API
+# token is stored anywhere.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-dist.yml
+    with:
+      ref: refs/tags/${{ github.event.release.tag_name }}
+      tag: ${{ github.event.release.tag_name }}
+      require-on-master: true
+
+  publish:
+    needs: build
+    # Trusted publishers are configured for the final repository only.
+    if: github.repository == 'yaselc/khipu-python-sdk'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/khipu-python-sdk/
+    permissions:
+      contents: read
+      id-token: write  # OIDC token for Trusted Publishing; nothing else
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+
+  verify:
+    needs: publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the published release from PyPI and smoke test it
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          python -m venv "$RUNNER_TEMP/venv"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          "$PY" -m pip install -q -U pip
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if "$PY" -m pip install -q --no-cache-dir "khipu-python-sdk==$VERSION"; then
+              break
+            fi
+            [ "$attempt" = 10 ] && exit 1
+            echo "Not installable yet (attempt $attempt); waiting for the index..."
+            sleep 30
+          done
+          cp tools/smoke_installed.py "$RUNNER_TEMP/"
+          cd "$RUNNER_TEMP"
+          VERSION="$VERSION" "$PY" -c "import os, sys; from importlib.metadata import version; v = version('khipu-python-sdk'); print(v); sys.exit(v != os.environ['VERSION'])"
+          "$PY" smoke_installed.py

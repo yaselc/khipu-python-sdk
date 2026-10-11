@@ -1,13 +1,35 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+# >=77 for PEP 639 license metadata (`license = "MIT"` + `license-files`).
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "khipu-python-sdk"
-version = "0.3.2"
-description = "High-level Python SDK for Khipu Instant Payments (v3) and Automatic Payments (v1) APIs"
+version = "0.3.3"
+description = "Community-maintained, unofficial Python SDK for the Khipu Instant Payments (v3) and Automatic Payments (v1) APIs"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+# No email on purpose: none has been approved for publication. Contact goes
+# through the repository (see SECURITY.md for vulnerability reports).
+maintainers = [{ name = "Yasel Couce" }]
+keywords = ["khipu", "payments", "chile", "openapi", "sdk"]
+# Keep the Python versions in step with the CI test matrix (.github/workflows/ci.yml);
+# tests/unit/test_release_metadata.py enforces it.
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Office/Business :: Financial",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
 dependencies = [
   # Used directly by khipu_sdk and by the generated clients.
   "httpx>=0.25",
@@ -16,6 +38,12 @@ dependencies = [
   # Required by generated models that parse ISO-8601 timestamps (dateutil.parser.isoparse).
   "python-dateutil>=2.8",
 ]
+
+[project.urls]
+Homepage = "https://github.com/yaselc/khipu-python-sdk"
+Source = "https://github.com/yaselc/khipu-python-sdk"
+Issues = "https://github.com/yaselc/khipu-python-sdk/issues"
+Changelog = "https://github.com/yaselc/khipu-python-sdk/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

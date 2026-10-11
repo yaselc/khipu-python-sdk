@@ -57,8 +57,9 @@ help:
 	@echo "  make clean-generated        Remove generated clients"
 	@echo ""
 	@echo "Distribution:"
-	@echo "  make build                  Build the wheel"
-	@echo "  make smoke-dist             Install built wheel in a clean venv and smoke test it"
+	@echo "  make build                  Build the wheel and sdist"
+	@echo "  make check-dist             Build, then check artifact contents and metadata"
+	@echo "  make smoke-dist             Check, then install wheel and sdist in clean venvs and smoke test them"
 	@echo ""
 
 
@@ -221,19 +222,27 @@ build:
 	# spec refresh removes a generated model) keeps being shipped until that
 	# directory is cleared.
 	rm -rf $(DIST_DIR) build
-	$(PYTHON) -m build --wheel --outdir $(DIST_DIR)
-	@echo "Wheel built in $(DIST_DIR)"
+	# sdist first, then the wheel built *from that sdist* (python -m build's
+	# default), so an sdist missing something the wheel needs fails here.
+	$(PYTHON) -m build --outdir $(DIST_DIR)
+	@echo "Wheel and sdist built in $(DIST_DIR)"
+
+.PHONY: check-dist
+check-dist: build
+	$(PYTHON) tools/check_dist.py $(DIST_DIR)
 
 .PHONY: smoke-dist
-smoke-dist: build
-	@echo "Installing built wheel into a clean virtualenv and running smoke test..."
+smoke-dist: check-dist
 	@set -eu; \
-	WHEEL="$$(ls $(DIST_DIR)/*.whl | head -1)"; \
-	WORK="$$(mktemp -d)"; \
-	trap 'rm -rf "$$WORK"' EXIT; \
-	$(PYTHON) -m venv "$$WORK/venv"; \
-	"$$WORK/venv/bin/python" -m pip install -q -U pip; \
-	"$$WORK/venv/bin/python" -m pip install -q "$$WHEEL"; \
-	cp tools/smoke_installed.py "$$WORK/smoke_installed.py"; \
-	cd "$$WORK" && "$$WORK/venv/bin/python" "$$WORK/smoke_installed.py"
+	for ARTIFACT in $(DIST_DIR)/*.whl $(DIST_DIR)/*.tar.gz; do \
+		echo "Installing $$ARTIFACT into a clean virtualenv and running smoke test..."; \
+		WORK="$$(mktemp -d)"; \
+		trap 'rm -rf "$$WORK"' EXIT; \
+		$(PYTHON) -m venv "$$WORK/venv"; \
+		"$$WORK/venv/bin/python" -m pip install -q -U pip; \
+		"$$WORK/venv/bin/python" -m pip install -q "$$ARTIFACT"; \
+		cp tools/smoke_installed.py "$$WORK/smoke_installed.py"; \
+		(cd "$$WORK" && "$$WORK/venv/bin/python" "$$WORK/smoke_installed.py"); \
+		rm -rf "$$WORK"; \
+	done
 	@echo "Distribution smoke test passed"

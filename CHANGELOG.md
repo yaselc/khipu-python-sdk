@@ -10,6 +10,44 @@ https://semver.org/
 ### Added
 - _TBD_
 
+## [0.3.3] - 2026-10-11
+
+Prepares the first PyPI release candidate. No change to the SDK's runtime
+behaviour or public API: `khipu_sdk`, the generated clients, retries (none),
+idempotency, success-status handling and every payment/PAC operation are
+byte-for-byte the same code as 0.3.2.
+
+### Changed
+
+- **Publication is now deliberate; merging to `master` releases nothing.** The
+  `release-on-merge` workflow, which tagged and created a GitHub Release for
+  `project.version` on every push to `master`, is removed. In its place:
+  - `publish-testpypi.yml`: manual (`workflow_dispatch`), publishes to TestPyPI;
+  - `publish-pypi.yml`: runs only when a GitHub Release is published, requires
+    the tag to be exactly `v<project.version>` on a commit already on `master`,
+    and publishes to PyPI from the `pypi` environment.
+
+  Both build a fresh wheel and sdist, inspect and smoke-test them, upload with
+  PyPI Trusted Publishing (OIDC, no stored token) and then install the uploaded
+  release back from the index and smoke-test it. Both refuse to publish while
+  `LICENSE` still carries the template copyright placeholder.
+- **Package metadata for PyPI.** SPDX license expression (`MIT`) with
+  `license-files`, maintainer, project URLs, classifiers (Python 3.10–3.12,
+  `Typing :: Typed`) and keywords. The build backend floor moves to
+  `setuptools>=77`, the first release that writes this license metadata.
+- **README** states prominently that this is a community-maintained SDK, not
+  affiliated with, endorsed by or maintained by Khipu; documents PyPI as the
+  install path (from 0.3.3) with a Git tag install as the alternative, and
+  points every link at `github.com/yaselc/khipu-python-sdk`.
+- `make build` now builds the sdist and the wheel from that sdist; `make
+  smoke-dist` checks both with the new `tools/check_dist.py` (exact package
+  contents, allowlist, metadata) and smoke-tests each from a clean install.
+
+### Added
+
+- `SECURITY.md` (private vulnerability reporting) and a short
+  `CONTRIBUTING.md`.
+
 ## [0.3.2] - 2026-09-23
 
 ### Added

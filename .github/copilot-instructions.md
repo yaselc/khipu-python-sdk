@@ -19,6 +19,6 @@
 ## Testing and releases
 - Use `make test` for the default test suite; enable integration tests only when required by exporting `KHIPU_RUN_INTEGRATION_TESTS`.
 - Versioning lives in `pyproject.toml`; update it together with `CHANGELOG.md` when shipping releases.
-- Release automation relies on Git tags; ensure new tags follow the `vX.Y.Z` pattern.
+- Merging to `master` releases nothing. PyPI publication happens only when the maintainer publishes a GitHub Release tagged exactly `vX.Y.Z` = `project.version` (see README "Releases"); never add workflows that tag, release or publish on push.
 
 Following these instructions keeps the generated clients reproducible and the SDK layer stable.
