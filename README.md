@@ -85,11 +85,17 @@ installed automatically.
 
 ## Installation
 
-### From PyPI
+> **Pre-release status.** `0.3.3` is the next planned release and the first
+> planned public PyPI release. It is **not yet published**: it is on neither
+> PyPI nor TestPyPI, and tag `v0.3.3` **does not yet exist**. The latest
+> existing tag is `v0.3.2`. The PyPI and Git install commands below are for use
+> after 0.3.3 is released; until then they fail.
 
-Releases are published to PyPI as
+### From PyPI (after 0.3.3 is released)
+
+The SDK will be published to PyPI as
 [`khipu-python-sdk`](https://pypi.org/project/khipu-python-sdk/), starting with
-0.3.3. The import name is `khipu_sdk`.
+0.3.3. The import name is `khipu_sdk`. After 0.3.3 is released:
 
 ```bash
 pip install "khipu-python-sdk==0.3.3"
@@ -112,14 +118,13 @@ dependencies = [
 
 Pin an exact version so an upstream release cannot silently alter payment
 behaviour in your application, and read the [changelog](CHANGELOG.md) before
-moving the pin. If `pip` reports that a version does not exist, it has not been
-published to PyPI yet; install the same tag from source instead.
+moving the pin.
 
-### From source (Git)
+### From source with Git (after 0.3.3 is released)
 
 Each PyPI release corresponds to a `vX.Y.Z` tag in this repository. The wheel
 built from a tag contains both `khipu_sdk` and the generated clients, so a Git
-install is equally functional:
+install is equally functional. After tag `v0.3.3` is created by the release:
 
 ```text
 khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.3
@@ -776,6 +781,12 @@ Either change is an owner decision made in its own reviewed pull request.
    (`.github/workflows/publish-pypi.yml`) refuses a tag that does not match
    `project.version` or that is not on `master`, then uploads and verifies the
    release.
+4. **First public release only (0.3.3).** Once 0.3.3 is genuinely on PyPI and
+   tag `v0.3.3` exists, open a small follow-up pull request that removes the
+   *Pre-release status* note from [Installation](#installation), makes the
+   install commands current instead of "after 0.3.3 is released", and updates
+   the pre-release README contract in `tests/unit/test_release_metadata.py` to
+   the released state.
 
 Both workflows publish with PyPI
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through

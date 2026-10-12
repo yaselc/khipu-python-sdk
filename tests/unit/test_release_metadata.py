@@ -12,6 +12,15 @@ the declared version has a dated CHANGELOG section, README install pins name
 that version, and the README/package metadata keep the independence
 disclaimer.
 
+The declared version is a release *candidate*, not proof of publication
+(Issue #22). Until 0.3.3 is actually on PyPI and tag ``v0.3.3`` exists, the
+README must say so, and its install commands must be scoped to after the
+release. That state cannot be observed offline, so it is pinned here as an
+explicit wording contract (``PLANNED_RELEASE`` / ``LATEST_EXISTING_TAG``).
+Once 0.3.3 is genuinely released, a follow-up PR removes the README's
+pre-release note, makes the install commands current and replaces the
+pre-release tests below with the released-state contract.
+
 The workflow checks read the YAML as text on purpose: the files are small, the
 checked lines are distinctive, and the dev environment has no YAML parser.
 
@@ -35,6 +44,16 @@ PYPI_WORKFLOW = WORKFLOWS / "publish-pypi.yml"
 BUILD_WORKFLOW = WORKFLOWS / "build-dist.yml"
 
 FINAL_REPOSITORY = "https://github.com/yaselc/khipu-python-sdk"
+
+#: The declared release candidate, not yet published anywhere (Issue #22).
+PLANNED_RELEASE = "0.3.3"
+#: The newest tag that actually exists. ``v<PLANNED_RELEASE>`` does not yet.
+LATEST_EXISTING_TAG = "v0.3.2"
+#: How the README scopes every install command for ``PLANNED_RELEASE``.
+POST_RELEASE_SCOPE = f"(after {PLANNED_RELEASE} is released)"
+
+PYPI_PIN = re.compile(r"khipu-python-sdk==(\d+\.\d+\.\d+)")
+GIT_PIN = re.compile(r"khipu-python-sdk\.git@v(\d+\.\d+\.\d+)")
 
 #: ``## [1.2.3] - 2026-09-22`` -- a released section, not ``## [Unreleased]``.
 RELEASE_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})$", re.M)
@@ -63,6 +82,20 @@ def released_versions() -> list[str]:
     return [match.group(1) for match in RELEASE_HEADING.finditer(
         CHANGELOG.read_text(encoding="utf-8")
     )]
+
+
+def flat(text: str) -> str:
+    """Markdown prose on one line, without blockquote markers or emphasis."""
+    return " ".join(text.replace(">", " ").replace("*", "").split())
+
+
+def readme_installation() -> str:
+    """The ``## Installation`` section of the README, up to the next ``## ``."""
+    match = re.search(
+        r"^## Installation\n(.*?)(?=^## )", README.read_text("utf-8"), re.M | re.S
+    )
+    assert match is not None, "README has no '## Installation' section"
+    return match.group(1)
 
 
 def triggers(workflow: Path) -> str:
@@ -103,10 +136,15 @@ def test_the_declared_version_is_the_newest_changelog_section():
 
 
 def test_readme_install_pins_point_at_the_declared_version():
-    """A README still pinning the previous release sends consumers to old code."""
+    """A README still pinning the previous release sends consumers to old code.
+
+    Every pin names the declared version -- never an older, existing tag such
+    as ``v0.3.2`` -- and every pin lives in the Installation section, where
+    the pre-release tests below can scope it.
+    """
     readme = README.read_text("utf-8")
-    pypi_pins = set(re.findall(r"khipu-python-sdk==(\d+\.\d+\.\d+)", readme))
-    git_pins = set(re.findall(r"khipu-python-sdk\.git@v(\d+\.\d+\.\d+)", readme))
+    pypi_pins = set(PYPI_PIN.findall(readme))
+    git_pins = set(GIT_PIN.findall(readme))
 
     assert pypi_pins, "README no longer shows a pinned PyPI install example"
     assert git_pins, "README no longer shows a pinned Git install example"
@@ -114,6 +152,75 @@ def test_readme_install_pins_point_at_the_declared_version():
         f"README pins {sorted(pypi_pins | git_pins)}; pyproject declares "
         f"{declared_version()}"
     )
+
+    installation = readme_installation()
+    for pin in (PYPI_PIN, GIT_PIN):
+        assert len(pin.findall(installation)) == len(pin.findall(readme)), (
+            f"README has {pin.pattern!r} install pins outside '## Installation'"
+        )
+
+
+# --------------------------------------------------------------------------
+# Pre-release README contract (Issue #22) -- replace once 0.3.3 is released
+# --------------------------------------------------------------------------
+
+
+def test_the_pre_release_contract_describes_the_declared_version():
+    """Bumping past 0.3.3 must revisit the pre-release wording and these tests."""
+    assert declared_version() == PLANNED_RELEASE, (
+        f"pyproject declares {declared_version()}; the pre-release README "
+        f"contract still describes {PLANNED_RELEASE}"
+    )
+
+
+def test_readme_states_the_pre_release_status_before_any_install_command():
+    """The candidate version is not a published release, and the README says so."""
+    installation = readme_installation()
+    status = flat(installation[: installation.index("\n### ")])
+
+    assert f"`{PLANNED_RELEASE}` is the next planned release" in status
+    assert "the first planned public PyPI release" in status
+    assert "It is not yet published" in status
+    assert f"tag `v{PLANNED_RELEASE}` does not yet exist" in status
+    assert f"The latest existing tag is `{LATEST_EXISTING_TAG}`" in status
+    assert f"are for use after {PLANNED_RELEASE} is released" in status
+
+
+def test_readme_install_commands_are_scoped_to_after_the_release():
+    """No 0.3.3 install command may read as executable today."""
+    subsections = re.split(r"^### ", readme_installation(), flags=re.M)[1:]
+    pinned = [
+        section for section in subsections
+        if PYPI_PIN.search(section) or GIT_PIN.search(section)
+    ]
+
+    assert pinned, "README Installation has no pinned install subsection"
+    for section in pinned:
+        heading = section.splitlines()[0]
+        assert heading.endswith(POST_RELEASE_SCOPE), (
+            f"install subsection {heading!r} is not scoped {POST_RELEASE_SCOPE!r}"
+        )
+        before_first_command = flat(section[: section.index("```")])
+        assert f"After {PLANNED_RELEASE} is released" in before_first_command or (
+            f"After tag `v{PLANNED_RELEASE}` is created" in before_first_command
+        ), heading
+
+
+def test_readme_has_no_false_install_from_the_same_tag_fallback():
+    """``v0.3.3`` does not exist either, so 'use the tag instead' is false."""
+    readme = flat(README.read_text("utf-8"))
+
+    assert "same tag from source" not in readme
+    assert "has not been published to PyPI yet; install" not in readme
+
+
+def test_readme_records_the_post_release_follow_up():
+    """The transition to released-state docs is a written release step."""
+    readme = flat(README.read_text("utf-8"))
+
+    assert f"First public release only ({PLANNED_RELEASE})." in readme
+    assert "removes the Pre-release status note" in readme
+    assert "tests/unit/test_release_metadata.py" in readme
 
 
 # --------------------------------------------------------------------------
@@ -123,11 +230,10 @@ def test_readme_install_pins_point_at_the_declared_version():
 
 def test_readme_states_independence_from_khipu_near_the_top():
     """The README is also the PyPI project page; the disclaimer must lead it."""
-    head = README.read_text("utf-8")[:2000]
-    flat = " ".join(head.replace(">", " ").replace("*", "").split())
+    head = flat(README.read_text("utf-8")[:2000])
 
-    assert "Community-maintained Python SDK for the Khipu API." in flat
-    assert "not affiliated with, endorsed by, or maintained by Khipu" in flat
+    assert "Community-maintained Python SDK for the Khipu API." in head
+    assert "not affiliated with, endorsed by, or maintained by Khipu" in head
 
 
 def test_package_summary_does_not_present_the_sdk_as_official():
