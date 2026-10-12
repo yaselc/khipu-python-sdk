@@ -7,6 +7,9 @@
 - ``PUBLICATION_GATES.toml`` does not record ``approved = true`` with evidence
   for the Khipu redistribution gate.
 
+The license gate is resolved (Issue #24): ``LICENSE`` carries the
+owner-approved notice, pinned below. The redistribution gate is still closed.
+
 The repository's real gate state is only ever read here. Approved states are
 exercised on temporary copies.
 """
@@ -29,6 +32,11 @@ BLOCKED = (
     "Khipu redistribution permission is not approved; publication is blocked "
     "by Issue #18"
 )
+
+LICENSE = REPO / "LICENSE"
+#: The owner-approved notice (Issue #24). Changing the holder or the years is
+#: an owner decision, never an edit made to satisfy a check.
+APPROVED_NOTICE = "Copyright (c) 2025-2026 Yasel Couce"
 
 MIT_RESOLVED = "MIT License\n\nCopyright (c) 2026 Example Holder\n"
 MIT_PLACEHOLDER = "MIT License\n\nCopyright (c) <YEAR> <COPYRIGHT HOLDER>\n"
@@ -84,11 +92,23 @@ def test_the_redistribution_gate_is_currently_unresolved():
     assert re.findall(r'^evidence\s*=\s*"([^"]*)"', table.group(1), re.M) == [""]
 
 
+def test_license_carries_the_approved_copyright_notice():
+    """Issue #24: the holder and years are the owner's decision, pinned here."""
+    lines = LICENSE.read_text(encoding="utf-8").splitlines()
+
+    assert lines[:3] == ["MIT License", "", APPROVED_NOTICE]
+    assert [line for line in lines if line.startswith("Copyright")] == [
+        APPROVED_NOTICE
+    ]
+    assert "<YEAR>" not in "\n".join(lines)
+    assert check_dist.LICENSE_PLACEHOLDER not in "\n".join(lines)
+
+
 def test_the_repository_is_not_publishable_today():
+    """Only the redistribution gate blocks: the license gate is resolved."""
     problems = check_dist.publication_gate_problems(REPO)
 
-    assert any(p.startswith(BLOCKED) for p in problems), problems
-    assert any("<COPYRIGHT HOLDER>" in p for p in problems), problems
+    assert len(problems) == 1 and problems[0].startswith(BLOCKED), problems
 
 
 def test_check_dist_with_tag_fails_on_the_redistribution_gate(tmp_path):
