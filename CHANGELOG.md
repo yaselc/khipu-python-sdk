@@ -10,6 +10,76 @@ https://semver.org/
 ### Added
 - _TBD_
 
+## [0.3.3] - 2026-10-11
+
+Prepares the first PyPI release candidate. No change to the SDK's runtime
+behaviour or supported public API: `khipu_sdk`, retries (none), idempotency,
+success-status handling and every payment/PAC operation are byte-for-byte the
+same code as 0.3.2. The generated Instant Payments client changes only as
+described under [Provider spec adoption](#provider-spec-adoption-instant-payments-20)
+below; the generated Automatic Payments client is unchanged.
+
+### Changed
+
+- **Publication is now deliberate; merging to `master` releases nothing.** The
+  `release-on-merge` workflow, which tagged and created a GitHub Release for
+  `project.version` on every push to `master`, is removed. In its place:
+  - `publish-testpypi.yml`: manual (`workflow_dispatch`), publishes to TestPyPI;
+  - `publish-pypi.yml`: runs only when a GitHub Release is published, requires
+    the tag to be exactly `v<project.version>` on a commit already on `master`,
+    and publishes to PyPI from the `pypi` environment.
+
+  Both build a fresh wheel and sdist, inspect and smoke-test them, upload with
+  PyPI Trusted Publishing (OIDC, no stored token) and then install the uploaded
+  release back from the index and smoke-test it. Both refuse to publish while
+  either Issue #18 publication gate is closed: `LICENSE` still carries the
+  template copyright placeholder, or the new `PUBLICATION_GATES.toml` does not
+  approve (with evidence) redistribution of Khipu's OpenAPI documents and the
+  generated clients. That gate ships as `approved = false`.
+- **Package metadata for PyPI.** SPDX license expression (`MIT`) with
+  `license-files`, maintainer, project URLs, classifiers (Python 3.10–3.12,
+  `Typing :: Typed`) and keywords. The build backend floor moves to
+  `setuptools>=77`, the first release that writes this license metadata.
+- **README** states prominently that this is a community-maintained SDK, not
+  affiliated with, endorsed by or maintained by Khipu; documents PyPI as the
+  install path (from 0.3.3) with a Git tag install as the alternative, and
+  points every link at `github.com/yaselc/khipu-python-sdk`.
+- `make build` now builds the sdist and the wheel from that sdist; `make
+  smoke-dist` checks both with the new `tools/check_dist.py` (exact package
+  contents, allowlist, metadata) and smoke-tests each from a clean install.
+
+### Added
+
+- `SECURITY.md` (private vulnerability reporting) and a short
+  `CONTRIBUTING.md`.
+
+### Provider spec adoption (Instant Payments, #20)
+
+Adopts the Instant Payments OpenAPI document Khipu published as of
+2026-10-11 (`openapi/khipu-instant-payments.yaml`, sha256 `fdbc4c27…` →
+`fed2ea62…`). Automatic Payments is unchanged. The supported `KhipuClient`
+facade is unaffected: none of these changes touch payment create/get, refunds,
+void, banks, receivers, security or any error response.
+
+- **Generated-only: `GET /v3/predict/all` (`getPredictAll`).** New
+  `generated.instant_payments.api.default.get_predict_all` with the
+  `PredictGetPredictAll` / `PredictGetPredictAllBanksItem` models: one
+  prediction per bank the collecting account can use, in `GET /v3/banks`
+  order. Not exposed on `KhipuClient`.
+- **Generated-only, breaking for direct `generated.*` users: prediction
+  `result` values are now uppercase.** Khipu's document changed
+  `predict-get-predict.result` from `ok`, `new_destinatary_amount_exceeded`,
+  `max_amount_exceeded`, `new_destinatary_cool_down`, `not_available_account`
+  to `OK`, `NEW_DESTINATARY_AMOUNT_EXCEEDED`, `MAX_AMOUNT_EXCEEDED`,
+  `NEW_DESTINATARY_COOL_DOWN`, `NOT_AVAILABLE_ACCOUNT`.
+  `PredictGetPredictResult` member *names* are unchanged, but their *values*
+  follow the new wire vocabulary, so the generated parser now rejects the old
+  lowercase strings. No lowercase aliases are kept: there is no evidence Khipu
+  still sends them. Prediction is not part of the supported facade.
+- The #15 `direct_debit` compatibility overlay is retained unchanged: the new
+  document still publishes only `regular_transfer`, `simplified_transfer` and
+  `not_available` for `payment-get-payment.payment_method`.
+
 ## [0.3.2] - 2026-09-23
 
 ### Added

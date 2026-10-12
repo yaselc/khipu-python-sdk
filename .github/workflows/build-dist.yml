@@ -1,0 +1,84 @@
+name: Build distribution
+
+# Reusable: called by publish-testpypi.yml and publish-pypi.yml so both publish
+# exactly the same kind of artifact, built and checked the same way. Nothing
+# here uploads anything; the callers' publish jobs only ever receive the
+# `python-package-distributions` artifact this job produced.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to build.
+        required: true
+        type: string
+      tag:
+        description: "Release tag being published (v<project.version>)."
+        required: true
+        type: string
+      require-on-master:
+        description: Refuse to build a commit that is not already on master.
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0  # the master-ancestry check needs history
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # A release must be code that went through review on master, not a tag
+      # pushed on a side branch.
+      - name: Require the commit to be on master
+        if: inputs.require-on-master
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo "::error::$(git rev-parse HEAD) is not on master; refusing to publish it."
+            exit 1
+          fi
+
+      - name: Install build tooling
+        run: |
+          python -m pip install -U pip build twine
+
+      # Builds the sdist and the wheel from that sdist, checks both with
+      # tools/check_dist.py, and smoke-tests each from a clean virtualenv.
+      - name: Build, inspect and smoke-test wheel + sdist
+        run: |
+          make smoke-dist
+
+      # Tag must be exactly v<project.version>, and both Issue #18 publication
+      # gates must be resolved before anything is published: LICENSE names its
+      # copyright holder, and PUBLICATION_GATES.toml approves (with evidence)
+      # redistribution of Khipu's specs and the generated clients. This is the
+      # single check that blocks TestPyPI and PyPI alike.
+      - name: Check release tag, version and license
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          python tools/check_dist.py dist --tag "$TAG"
+
+      - name: Validate metadata as (Test)PyPI will
+        run: |
+          python -m twine check --strict dist/*
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error

@@ -1,12 +1,20 @@
 # Khipu Python SDK
 
-[![CI](https://github.com/parle-cl/khipu-python-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/parle-cl/khipu-python-sdk/actions/workflows/ci.yml)
-[![Latest Release](https://img.shields.io/github/v/release/parle-cl/khipu-python-sdk?include_prereleases)](https://github.com/parle-cl/khipu-python-sdk/releases)
+[![CI](https://github.com/yaselc/khipu-python-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/yaselc/khipu-python-sdk/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/khipu-python-sdk)](https://pypi.org/project/khipu-python-sdk/)
 [![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+> **Community-maintained Python SDK for the Khipu API.** This project is
+> independently maintained and is **not affiliated with, endorsed by, or
+> maintained by Khipu**. "Khipu" refers to the payment service whose public API
+> this SDK calls. For questions about your Khipu account, contract or API
+> credentials, contact Khipu directly; for problems with this SDK, use this
+> repository's [issues](https://github.com/yaselc/khipu-python-sdk/issues).
+
 High-level Python SDK for integrating with **Khipu Instant Payments (v3)** and
-**Khipu Automatic Payments / PAC (v1)**, built from official OpenAPI specifications.
+**Khipu Automatic Payments / PAC (v1)**, generated from the OpenAPI
+specifications Khipu publishes on its documentation site.
 
 The SDK is a thin, typed boundary around what Khipu actually publishes. It
 validates money before anything is serialised, maps every failure onto a precise
@@ -47,7 +55,8 @@ khipu-python-sdk/
     py.typed               # PEP 561 marker
 
   tools/
-    smoke_installed.py     # smoke test run against the *installed* wheel
+    check_dist.py          # wheel/sdist content and metadata check (pre-publish gate)
+    smoke_installed.py     # smoke test run against the *installed* wheel or sdist
 
   tests/
     unit/
@@ -59,11 +68,12 @@ khipu-python-sdk/
 
 ## Khipu API documentation
 
-Official Khipu API documentation: https://docs.khipu.com/
+Khipu's own API documentation: https://docs.khipu.com/
 
-This repository uses the official OpenAPI specifications published by Khipu,
-downloaded directly from their documentation site and pinned by sha256 in
-`OPENAPI_SPECS.lock.json`.
+This repository uses the OpenAPI specifications Khipu publishes there,
+downloaded directly from its documentation site and pinned by sha256 in
+`OPENAPI_SPECS.lock.json`. It is not the source of truth for Khipu's API; when
+this README and Khipu's documentation disagree, Khipu's documentation wins.
 
 ## Requirements
 
@@ -75,15 +85,20 @@ installed automatically.
 
 ## Installation
 
-### From Git (recommended)
+### From PyPI
 
-The published wheel contains both `khipu_sdk` and the generated clients, so a
-plain Git install is fully functional.
+Releases are published to PyPI as
+[`khipu-python-sdk`](https://pypi.org/project/khipu-python-sdk/), starting with
+0.3.3. The import name is `khipu_sdk`.
+
+```bash
+pip install "khipu-python-sdk==0.3.3"
+```
 
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.2
+khipu-python-sdk==0.3.3
 ```
 
 Or in `pyproject.toml`:
@@ -91,12 +106,26 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk @ git+ssh://git@github.com/parle-cl/khipu-python-sdk.git@v0.3.2",
+  "khipu-python-sdk==0.3.3",
 ]
 ```
 
-Pin a tag rather than `@master` so an upstream change cannot silently alter
-payment behaviour in your application.
+Pin an exact version so an upstream release cannot silently alter payment
+behaviour in your application, and read the [changelog](CHANGELOG.md) before
+moving the pin. If `pip` reports that a version does not exist, it has not been
+published to PyPI yet; install the same tag from source instead.
+
+### From source (Git)
+
+Each PyPI release corresponds to a `vX.Y.Z` tag in this repository. The wheel
+built from a tag contains both `khipu_sdk` and the generated clients, so a Git
+install is equally functional:
+
+```text
+khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.3
+```
+
+Pin a tag rather than `@master`: `master` is not a release.
 
 ### From a local checkout (SDK development)
 
@@ -108,9 +137,11 @@ make install-dev
 
 ### Verifying an install
 
-`make smoke-dist` builds the wheel, installs it into a throwaway virtualenv and
-creates and retrieves a payment against a local mock server. It fails if the
-distribution is missing the generated clients. CI runs it on every push.
+`make smoke-dist` builds the wheel and sdist, checks their contents with
+`tools/check_dist.py`, installs each into a throwaway virtualenv and creates and
+retrieves a payment against a local mock server. It fails if a distribution is
+missing the generated clients or ships anything outside its allowlist. CI runs
+it on every push.
 
 ## Configuration
 
@@ -421,7 +452,7 @@ A PAC charge (`create_charge`) is itself a Khipu payment, read back with
 document does **not** declare: it lists only `regular_transfer`,
 `simplified_transfer` and `not_available`. A client generated verbatim from that
 document could not read a PAC payment at all
-([#15](https://github.com/parle-cl/khipu-python-sdk/issues/15)).
+([#15](https://github.com/yaselc/khipu-python-sdk/issues/15)).
 
 The SDK therefore carries one deliberate, narrow compatibility allowance:
 `direct_debit` is accepted for `payment_method` on `GET /v3/payments/{id}` and
@@ -572,11 +603,11 @@ facade deliberately exposes: unsubscribing a PAC subscription
 (`DELETE /v1/automatic-payment/subscription/{id}`, an irreversible operation),
 cancelling a payment, `POST /v3/payments/{id}/void`,
 `POST /v3/refunds`, `GET /v3/refund-wallet/balance`, `GET /v3/banks`,
-`GET /v3/merchants/{id}/paymentMethods`, `GET /v3/predict`, and the receiver
-endpoints. They are regenerated and kept in sync, but are not part of the
-supported API and may change shape when the specs are refreshed. Promoting any
-of them onto `KhipuClient` is a deliberate decision, not something to do because
-the generated code exists.
+`GET /v3/merchants/{id}/paymentMethods`, `GET /v3/predict`,
+`GET /v3/predict/all`, and the receiver endpoints. They are regenerated and kept
+in sync, but are not part of the supported API and may change shape when the
+specs are refreshed. Promoting any of them onto `KhipuClient` is a deliberate
+decision, not something to do because the generated code exists.
 
 Note that Khipu marks `POST /v3/payments/{id}/refunds` as obsolete in favour of
 `POST /v3/payments/{id}/void`, and that it now refunds the full amount only.
@@ -595,11 +626,11 @@ These are deliberate boundaries, not gaps waiting to be filled:
   `get_instant_payment()`.
 - **Fee quotation.** *No currently implemented Khipu operation, and no endpoint
   in either vendored spec, returns the merchant processing fee before a payment
-  is created.* `GET /v3/predict` returns payer transfer limits, not fees;
-  `integrator_fee` is a commission you send, not one you read. This SDK does not
-  invent a fee formula. If you need to show a fee before the payer commits, that
-  number has to come from your commercial agreement with Khipu, reconciled later
-  against actual settlement.
+  is created.* `GET /v3/predict` and `GET /v3/predict/all` return payer
+  transfer limits, not fees; `integrator_fee` is a commission you send, not one
+  you read. This SDK does not invent a fee formula. If you need to show a fee
+  before the payer commits, that number has to come from your commercial
+  agreement with Khipu, reconciled later against actual settlement.
 - **Retries.** See [Idempotency](#idempotency-read-this-before-you-retry).
 
 ## OpenAPI specifications and regeneration
@@ -712,3 +743,49 @@ export KHIPU_RUN_INTEGRATION_TESTS=1
 export KHIPU_API_KEY="..."
 make test
 ```
+
+## Releases
+
+Merging to `master` does **not** release anything: it creates no tag, no GitHub
+Release and no package upload. Publishing is always a deliberate maintainer
+action, and both paths below build a fresh wheel and sdist, run
+`tools/check_dist.py` and smoke-test both artifacts from a clean install before
+uploading anything.
+
+**Publication is currently blocked.** `tools/check_dist.py --tag`, which both
+publish workflows run, refuses to publish until both Issue #18 publication
+gates are resolved:
+
+- `LICENSE` names its confirmed copyright holder (the template placeholder is
+  still there); and
+- `PUBLICATION_GATES.toml` records `approved = true`, with evidence, for an
+  explicit basis to redistribute Khipu's OpenAPI documents and the clients
+  generated from them. It is `approved = false`: no such basis has been
+  established.
+
+Either change is an owner decision made in its own reviewed pull request.
+
+1. Bump `project.version` in `pyproject.toml` and move the changelog entries into
+   a dated `## [X.Y.Z] - YYYY-MM-DD` section in the same pull request.
+2. **TestPyPI (optional rehearsal).** Run the *Publish to TestPyPI* workflow
+   (`.github/workflows/publish-testpypi.yml`) manually, typing the version
+   being published. The run installs the uploaded release back from TestPyPI
+   and smoke-tests it.
+3. **PyPI.** Publish a GitHub Release whose tag is exactly `vX.Y.Z` on a commit
+   that is already on `master`. The *Publish to PyPI* workflow
+   (`.github/workflows/publish-pypi.yml`) refuses a tag that does not match
+   `project.version` or that is not on `master`, then uploads and verifies the
+   release.
+
+Both workflows publish with PyPI
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through
+the GitHub environments `testpypi` and `pypi`. No PyPI API token is stored in
+this repository.
+
+## License
+
+MIT; see [LICENSE](LICENSE). The OpenAPI documents under `openapi/` are Khipu's
+publications and are not covered by that license.
+
+Security issues: see [SECURITY.md](SECURITY.md). Contributions: see
+[CONTRIBUTING.md](CONTRIBUTING.md).

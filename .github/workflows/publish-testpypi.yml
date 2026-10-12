@@ -1,0 +1,102 @@
+name: Publish to TestPyPI
+
+# Manual rehearsal of a release. Runs only when a maintainer dispatches it, on
+# the branch or tag selected in the dispatch form, and only publishes to
+# TestPyPI. Production PyPI is publish-pypi.yml.
+#
+# Publishing uses Trusted Publishing (OIDC): TestPyPI must list this
+# repository, this workflow file and the `testpypi` environment as a trusted
+# publisher. No API token is stored anywhere.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, e.g. 0.3.3. Must equal project.version on the selected ref."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-testpypi
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-dist.yml
+    with:
+      ref: ${{ github.sha }}
+      tag: v${{ inputs.version }}
+      require-on-master: false
+
+  publish:
+    needs: build
+    # Trusted publishers are configured for the final repository only.
+    if: github.repository == 'yaselc/khipu-python-sdk'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/khipu-python-sdk/${{ inputs.version }}/
+    permissions:
+      contents: read
+      id-token: write  # OIDC token for Trusted Publishing; nothing else
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  verify:
+    needs: publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The SDK comes from TestPyPI with --no-deps; its dependencies come from
+      # PyPI. TestPyPI accepts uploads from anyone, so resolving httpx & co.
+      # there would install whatever someone parked under those names.
+      - name: Install the published release from TestPyPI and smoke test it
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          "$PY" -m pip install -q -U pip
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if "$PY" -m pip install -q --no-cache-dir --no-deps \
+                 --index-url https://test.pypi.org/simple/ \
+                 "khipu-python-sdk==$VERSION"; then
+              break
+            fi
+            [ "$attempt" = 10 ] && exit 1
+            echo "Not installable yet (attempt $attempt); waiting for the index..."
+            sleep 30
+          done
+          "$PY" - > "$RUNNER_TEMP/requirements.txt" <<'PY'
+          from importlib.metadata import requires
+          print("\n".join(r for r in requires("khipu-python-sdk") or [] if "extra ==" not in r))
+          PY
+          "$PY" -m pip install -q -r "$RUNNER_TEMP/requirements.txt"
+          cp tools/smoke_installed.py "$RUNNER_TEMP/"
+          cd "$RUNNER_TEMP"
+          VERSION="$VERSION" "$PY" -c "import os, sys; from importlib.metadata import version; v = version('khipu-python-sdk'); print(v); sys.exit(v != os.environ['VERSION'])"
+          "$PY" smoke_installed.py

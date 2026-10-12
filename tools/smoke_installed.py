@@ -1,7 +1,7 @@
 """Smoke test for the *installed* distribution.
 
 This script must be run from a clean virtual environment that has the built
-wheel installed, and from a working directory that is NOT the repository
+wheel or sdist installed, and from a working directory that is NOT the repository
 checkout. It proves that the packaged SDK ships the generated clients and can
 perform the full facade call path against a local mock HTTP server.
 

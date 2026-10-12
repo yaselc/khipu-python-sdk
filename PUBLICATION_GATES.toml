@@ -1,0 +1,19 @@
+# Publication gates (Issue #18).
+#
+# `tools/check_dist.py --tag`, which both publish workflows run through
+# .github/workflows/build-dist.yml before anything is uploaded, refuses to
+# publish to TestPyPI or PyPI unless every gate here is approved.
+#
+# Changing a value to `true` is an owner decision, never an inference: it is
+# made in its own reviewed pull request that sets `evidence` to the Issue #18
+# comment recording the decision and its basis.
+#
+# (The other gate, the copyright holder, is enforced on LICENSE itself: the
+# template placeholder must be replaced.)
+
+[khipu_redistribution]
+# Explicit basis to redistribute Khipu's OpenAPI documents (openapi/) and the
+# clients generated from them (generated/, shipped in the wheel and sdist).
+# Status: OPEN -- no explicit redistribution/modification grant found.
+approved = false
+evidence = ""
