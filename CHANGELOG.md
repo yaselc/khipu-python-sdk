@@ -7,10 +7,11 @@ https://semver.org/
 
 ## [Unreleased]
 
-### Added
-- _TBD_
+Target release: 0.3.3
 
-## [0.3.3] - 2026-10-11
+Release candidate prepared on 2026-10-11 and not yet released: there is no
+`v0.3.3` tag and nothing is published to TestPyPI or PyPI. These entries move to
+a dated `## [0.3.3] - <release date>` section when 0.3.3 is actually released.
 
 Prepares the first PyPI release candidate. No change to the SDK's runtime
 behaviour or supported public API: `khipu_sdk`, retries (none), idempotency,
@@ -43,7 +44,10 @@ below; the generated Automatic Payments client is unchanged.
 - **README** states prominently that this is a community-maintained SDK, not
   affiliated with, endorsed by or maintained by Khipu; documents PyPI as the
   install path (from 0.3.3) with a Git tag install as the alternative, and
-  points every link at `github.com/yaselc/khipu-python-sdk`.
+  points every link at `github.com/yaselc/khipu-python-sdk`. Until 0.3.3 is
+  released, Installation says it is not yet published, that `v0.3.3` does not
+  yet exist and that `v0.3.2` is the latest tag, and scopes both install
+  commands to after the release.
 - `make build` now builds the sdist and the wheel from that sdist; `make
   smoke-dist` checks both with the new `tools/check_dist.py` (exact package
   contents, allowlist, metadata) and smoke-tests each from a clean install.

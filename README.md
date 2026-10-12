@@ -781,12 +781,16 @@ Either change is an owner decision made in its own reviewed pull request.
    (`.github/workflows/publish-pypi.yml`) refuses a tag that does not match
    `project.version` or that is not on `master`, then uploads and verifies the
    release.
-4. **First public release only (0.3.3).** Once 0.3.3 is genuinely on PyPI and
-   tag `v0.3.3` exists, open a small follow-up pull request that removes the
-   *Pre-release status* note from [Installation](#installation), makes the
-   install commands current instead of "after 0.3.3 is released", and updates
-   the pre-release README contract in `tests/unit/test_release_metadata.py` to
-   the released state.
+4. **First public release only (0.3.3).** Until it is released, 0.3.3's
+   changelog entries stay under `## [Unreleased]` as its target release. Once
+   0.3.3 is genuinely on PyPI and tag `v0.3.3` exists, open a small follow-up
+   pull request that:
+   - cuts the 0.3.3 entries from `## [Unreleased]` into a dated
+     `## [0.3.3] - YYYY-MM-DD` section carrying the actual release date;
+   - removes the *Pre-release status* note from [Installation](#installation);
+   - makes the install commands current instead of "after 0.3.3 is released";
+   - switches the pre-release README and CHANGELOG contract in
+     `tests/unit/test_release_metadata.py` to released-state semantics.
 
 Both workflows publish with PyPI
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through
