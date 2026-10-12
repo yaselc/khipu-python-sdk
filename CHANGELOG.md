@@ -13,9 +13,11 @@ https://semver.org/
 ## [0.3.3] - 2026-10-11
 
 Prepares the first PyPI release candidate. No change to the SDK's runtime
-behaviour or public API: `khipu_sdk`, the generated clients, retries (none),
-idempotency, success-status handling and every payment/PAC operation are
-byte-for-byte the same code as 0.3.2.
+behaviour or supported public API: `khipu_sdk`, retries (none), idempotency,
+success-status handling and every payment/PAC operation are byte-for-byte the
+same code as 0.3.2. The generated Instant Payments client changes only as
+described under [Provider spec adoption](#provider-spec-adoption-instant-payments-20)
+below; the generated Automatic Payments client is unchanged.
 
 ### Changed
 
@@ -50,6 +52,33 @@ byte-for-byte the same code as 0.3.2.
 
 - `SECURITY.md` (private vulnerability reporting) and a short
   `CONTRIBUTING.md`.
+
+### Provider spec adoption (Instant Payments, #20)
+
+Adopts the Instant Payments OpenAPI document Khipu published as of
+2026-10-11 (`openapi/khipu-instant-payments.yaml`, sha256 `fdbc4c27…` →
+`fed2ea62…`). Automatic Payments is unchanged. The supported `KhipuClient`
+facade is unaffected: none of these changes touch payment create/get, refunds,
+void, banks, receivers, security or any error response.
+
+- **Generated-only: `GET /v3/predict/all` (`getPredictAll`).** New
+  `generated.instant_payments.api.default.get_predict_all` with the
+  `PredictGetPredictAll` / `PredictGetPredictAllBanksItem` models: one
+  prediction per bank the collecting account can use, in `GET /v3/banks`
+  order. Not exposed on `KhipuClient`.
+- **Generated-only, breaking for direct `generated.*` users: prediction
+  `result` values are now uppercase.** Khipu's document changed
+  `predict-get-predict.result` from `ok`, `new_destinatary_amount_exceeded`,
+  `max_amount_exceeded`, `new_destinatary_cool_down`, `not_available_account`
+  to `OK`, `NEW_DESTINATARY_AMOUNT_EXCEEDED`, `MAX_AMOUNT_EXCEEDED`,
+  `NEW_DESTINATARY_COOL_DOWN`, `NOT_AVAILABLE_ACCOUNT`.
+  `PredictGetPredictResult` member *names* are unchanged, but their *values*
+  follow the new wire vocabulary, so the generated parser now rejects the old
+  lowercase strings. No lowercase aliases are kept: there is no evidence Khipu
+  still sends them. Prediction is not part of the supported facade.
+- The #15 `direct_debit` compatibility overlay is retained unchanged: the new
+  document still publishes only `regular_transfer`, `simplified_transfer` and
+  `not_available` for `payment-get-payment.payment_method`.
 
 ## [0.3.2] - 2026-09-23
 

@@ -17,7 +17,7 @@ class PredictGetPredict:
     transferir a un nuevo destinatario.
 
         Attributes:
-            result (PredictGetPredictResult): El resultado de la predicción. Example: ok.
+            result (PredictGetPredictResult): El resultado de la predicción. Example: OK.
             max_amount (float): El monto máximo posible para transferir. Example: 5000000.
             cool_down_date (str): Fecha de término para la restricción de monto en formato ISO-8601 Example:
                 2024-06-21T11:23:09.123Z.
