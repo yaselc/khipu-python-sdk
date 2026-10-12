@@ -761,14 +761,15 @@ uploading anything.
 publish workflows run, refuses to publish until both Issue #18 publication
 gates are resolved:
 
-- `LICENSE` names its confirmed copyright holder (the template placeholder is
-  still there); and
+- `LICENSE` names its confirmed copyright holder. Resolved: it carries
+  `Copyright (c) 2025-2026 Yasel Couce` (Issue #24), and the check still
+  refuses the template placeholder should it return; and
 - `PUBLICATION_GATES.toml` records `approved = true`, with evidence, for an
   explicit basis to redistribute Khipu's OpenAPI documents and the clients
   generated from them. It is `approved = false`: no such basis has been
-  established.
+  established, so this gate alone keeps publication blocked.
 
-Either change is an owner decision made in its own reviewed pull request.
+Each change is an owner decision made in its own reviewed pull request.
 
 1. Bump `project.version` in `pyproject.toml` and move the changelog entries into
    a dated `## [X.Y.Z] - YYYY-MM-DD` section in the same pull request.
