@@ -1,4 +1,4 @@
-"""Issue #18 publication gates must block every publish until the owner opens them.
+"""Issue #18 publication gates must block every publish until the owner resolves them.
 
 ``tools/check_dist.py --tag`` is the release check both publish workflows run
 (through ``build-dist.yml``) before uploading anything. It must fail while:
@@ -7,10 +7,13 @@
 - ``PUBLICATION_GATES.toml`` does not record ``approved = true`` with evidence
   for the Khipu redistribution gate.
 
-The license gate is resolved (Issue #24): ``LICENSE`` carries the
-owner-approved notice, pinned below. The redistribution gate is still closed.
+Both gates are resolved. The license gate (Issue #24): ``LICENSE`` carries the
+owner-approved notice, pinned below. The redistribution gate (Issue #26):
+``PUBLICATION_GATES.toml`` approves with the Issue #18 comment recording
+Khipu's written permission as evidence, also pinned below.
 
-The repository's real gate state is only ever read here. Approved states are
+The repository's real gate state is only ever read here. Refused states,
+including the real gate file with its approval or evidence reverted, are
 exercised on temporary copies.
 """
 
@@ -40,6 +43,11 @@ APPROVED_NOTICE = "Copyright (c) 2025-2026 Yasel Couce"
 
 MIT_RESOLVED = "MIT License\n\nCopyright (c) 2026 Example Holder\n"
 MIT_PLACEHOLDER = "MIT License\n\nCopyright (c) <YEAR> <COPYRIGHT HOLDER>\n"
+#: Public record of Khipu's written permission (Issue #18). Changing it is an
+#: owner decision, never an edit made to satisfy a check.
+APPROVED_EVIDENCE = (
+    "https://github.com/parle-cl/khipu-python-sdk/issues/18#issuecomment-6159094247"
+)
 APPROVED = (
     "[khipu_redistribution]\n"
     "approved = true\n"
@@ -80,16 +88,18 @@ def test_the_redistribution_gate_exists_and_is_tracked():
     assert tracked.returncode == 0, "PUBLICATION_GATES.toml is not tracked in Git"
 
 
-def test_the_redistribution_gate_is_currently_unresolved():
-    """Flipping this is a future, owner-reviewed decision recorded in #18."""
+def test_the_redistribution_gate_records_the_approved_decision():
+    """Issue #26: approved, with the #18 comment recording Khipu's permission."""
     table = re.search(
         r"^\[khipu_redistribution\]$(.*?)(?=^\[|\Z)",
         GATES.read_text(encoding="utf-8"),
         re.M | re.S,
     )
     assert table is not None
-    assert re.findall(r"^approved\s*=\s*(\S+)", table.group(1), re.M) == ["false"]
-    assert re.findall(r'^evidence\s*=\s*"([^"]*)"', table.group(1), re.M) == [""]
+    assert re.findall(r"^approved\s*=\s*(\S+)", table.group(1), re.M) == ["true"]
+    assert re.findall(r'^evidence\s*=\s*"([^"]*)"', table.group(1), re.M) == [
+        APPROVED_EVIDENCE
+    ]
 
 
 def test_license_carries_the_approved_copyright_notice():
@@ -104,23 +114,56 @@ def test_license_carries_the_approved_copyright_notice():
     assert check_dist.LICENSE_PLACEHOLDER not in "\n".join(lines)
 
 
-def test_the_repository_is_not_publishable_today():
-    """Only the redistribution gate blocks: the license gate is resolved."""
-    problems = check_dist.publication_gate_problems(REPO)
-
-    assert len(problems) == 1 and problems[0].startswith(BLOCKED), problems
+def test_no_publication_gate_blocks_the_repository():
+    """Both gates are resolved, so neither blocks a publish."""
+    assert check_dist.publication_gate_problems(REPO) == []
 
 
-def test_check_dist_with_tag_fails_on_the_redistribution_gate(tmp_path):
-    """The exact command build-dist.yml runs refuses to pass today."""
+def test_check_dist_with_tag_raises_no_gate_failure(tmp_path):
+    """The exact command build-dist.yml runs no longer fails on a gate.
+
+    ``tmp_path`` holds no artifacts, so the command still fails, but only
+    because the distribution is missing.
+    """
+    tag = f"v{check_dist.declared_version()}"
     result = subprocess.run(
-        [sys.executable, str(CHECK_DIST), str(tmp_path), "--tag", "v0.0.0"],
+        [sys.executable, str(CHECK_DIST), str(tmp_path), "--tag", tag],
         capture_output=True,
         text=True,
     )
 
     assert result.returncode == 1
-    assert f"FAIL: {BLOCKED}" in result.stdout, result.stdout
+    failures = [line for line in result.stdout.splitlines() if line.startswith("FAIL")]
+    assert failures == [
+        f"FAIL: {tmp_path} must hold exactly one wheel and one sdist, found []"
+    ], result.stdout
+
+
+def test_the_real_gate_reverted_to_false_blocks(tmp_path):
+    """Fail-closed still holds for the committed file, not only for fixtures."""
+    real = GATES.read_text(encoding="utf-8")
+    assert real.count("\napproved = true\n") == 1
+    repo = fake_repo(
+        tmp_path,
+        LICENSE.read_text(encoding="utf-8"),
+        real.replace("\napproved = true\n", "\napproved = false\n"),
+    )
+    problems = check_dist.publication_gate_problems(repo)
+
+    assert len(problems) == 1 and problems[0].startswith(BLOCKED), problems
+
+
+def test_the_real_gate_without_its_evidence_blocks(tmp_path):
+    real = GATES.read_text(encoding="utf-8")
+    assert real.count(f'"{APPROVED_EVIDENCE}"') == 1
+    repo = fake_repo(
+        tmp_path,
+        LICENSE.read_text(encoding="utf-8"),
+        real.replace(f'"{APPROVED_EVIDENCE}"', '""'),
+    )
+    problems = check_dist.publication_gate_problems(repo)
+
+    assert len(problems) == 1 and "no evidence is recorded" in problems[0], problems
 
 
 # --------------------------------------------------------------------------

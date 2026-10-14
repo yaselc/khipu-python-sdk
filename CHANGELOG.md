@@ -36,7 +36,9 @@ below; the generated Automatic Payments client is unchanged.
   either Issue #18 publication gate is closed: `LICENSE` still carries the
   template copyright placeholder, or the new `PUBLICATION_GATES.toml` does not
   approve (with evidence) redistribution of Khipu's OpenAPI documents and the
-  generated clients. That gate ships as `approved = false`.
+  generated clients. That gate was added as `approved = false` and was
+  approved, with Khipu's written permission recorded in Issue #18 as its
+  evidence, in Issue #26.
 - **Package metadata for PyPI.** SPDX license expression (`MIT`) with
   `license-files`, maintainer, project URLs, classifiers (Python 3.10–3.12,
   `Typing :: Typed`) and keywords. The build backend floor moves to

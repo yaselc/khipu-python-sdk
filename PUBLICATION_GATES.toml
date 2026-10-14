@@ -14,6 +14,11 @@
 [khipu_redistribution]
 # Explicit basis to redistribute Khipu's OpenAPI documents (openapi/) and the
 # clients generated from them (generated/, shipped in the wheel and sdist).
-# Status: OPEN -- no explicit redistribution/modification grant found.
-approved = false
-evidence = ""
+# Status: APPROVED (Issue #26). Khipu confirmed in writing that this project
+# may host its published OpenAPI documents, generate Python clients from them,
+# redistribute the generated code and publish khipu-python-sdk on GitHub and
+# PyPI under MIT, as an independently maintained project that claims no
+# affiliation with or endorsement by Khipu. The correspondence is kept
+# privately; `evidence` is the public record of the decision in Issue #18.
+approved = true
+evidence = "https://github.com/parle-cl/khipu-python-sdk/issues/18#issuecomment-6159094247"

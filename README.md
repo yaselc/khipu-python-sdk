@@ -757,19 +757,21 @@ action, and both paths below build a fresh wheel and sdist, run
 `tools/check_dist.py` and smoke-test both artifacts from a clean install before
 uploading anything.
 
-**Publication is currently blocked.** `tools/check_dist.py --tag`, which both
-publish workflows run, refuses to publish until both Issue #18 publication
-gates are resolved:
+`tools/check_dist.py --tag`, which both publish workflows run, refuses to
+publish unless both Issue #18 publication gates are resolved. Both are:
 
 - `LICENSE` names its confirmed copyright holder. Resolved: it carries
   `Copyright (c) 2025-2026 Yasel Couce` (Issue #24), and the check still
   refuses the template placeholder should it return; and
 - `PUBLICATION_GATES.toml` records `approved = true`, with evidence, for an
   explicit basis to redistribute Khipu's OpenAPI documents and the clients
-  generated from them. It is `approved = false`: no such basis has been
-  established, so this gate alone keeps publication blocked.
+  generated from them. Resolved: Khipu's written permission is recorded in
+  Issue #18 (Issue #26), and the check still refuses `approved = false` or an
+  approval without evidence should either return.
 
 Each change is an owner decision made in its own reviewed pull request.
+Resolving the gates publishes nothing: publication remains the deliberate
+maintainer action described below.
 
 1. Bump `project.version` in `pyproject.toml` and move the changelog entries into
    a dated `## [X.Y.Z] - YYYY-MM-DD` section in the same pull request.
