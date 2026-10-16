@@ -25,12 +25,18 @@ pre-release tests below with the released-state contract.
 The workflow checks read the YAML as text on purpose: the files are small, the
 checked lines are distinctive, and the dev environment has no YAML parser.
 
-These tests are cheap and offline: they only read files in the repository.
+These tests are cheap and offline: they read files in the repository, and the
+master-ancestry gate of ``build-dist.yml`` is executed against throwaway git
+repositories under ``tmp_path``.
 """
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -394,12 +400,11 @@ def test_publish_workflows_build_and_check_through_the_shared_workflow():
         assert "uses: ./.github/workflows/build-dist.yml" in build, workflow.name
         assert "needs: build" in job(workflow, "publish"), workflow.name
 
-    # The production tag must be the release's tag, built from that tag.
+    # The production tag must be the release's tag; TestPyPI checks the
+    # dispatched version. Neither caller says what to build (see below).
     pypi_build = job(PYPI_WORKFLOW, "build")
-    assert "ref: refs/tags/${{ github.event.release.tag_name }}" in pypi_build
     assert "tag: ${{ github.event.release.tag_name }}" in pypi_build
     testpypi_build = job(TESTPYPI_WORKFLOW, "build")
-    assert "ref: ${{ github.sha }}" in testpypi_build
     assert "tag: v${{ inputs.version }}" in testpypi_build
 
     shared = BUILD_WORKFLOW.read_text("utf-8")
@@ -433,6 +438,137 @@ def test_every_build_for_an_index_is_on_master_before_repository_code_runs():
     assert "git merge-base --is-ancestor HEAD origin/master" in check
     assert "exit 1" in check
     assert "fetch-depth: 0" in steps[0]
+
+
+def test_no_caller_can_choose_the_commit_a_release_build_checks_out():
+    """The release build only ever builds the triggering event's commit (Issue #28).
+
+    ``build-dist.yml`` used to take the ref to build as an input, so whatever
+    a caller passed was checked out and executed in the build job (the source
+    of the CodeQL cache-poisoning alerts). It now accepts only the release tag
+    string, which is never checked out or executed, and every checkout in the
+    release workflows uses the event's own immutable commit (GITHUB_SHA).
+    """
+    inputs = re.search(
+        r"^  workflow_call:\n(?:    #.*\n)*    inputs:\n(.*?)(?=^  \S|^\S|\Z)",
+        triggers(BUILD_WORKFLOW) + "\n",
+        re.M | re.S,
+    )
+    assert inputs is not None, "build-dist.yml declares no workflow_call inputs"
+    assert re.findall(r"^      (\S+):", inputs.group(1), re.M) == ["tag"]
+
+    for workflow in (TESTPYPI_WORKFLOW, PYPI_WORKFLOW):
+        build = job(workflow, "build")
+        passed = re.findall(r"^      (\S+):", build.split("    with:\n", 1)[1], re.M)
+        assert passed == ["tag"], f"{workflow.name} passes {passed} to build-dist.yml"
+
+    for workflow in (BUILD_WORKFLOW, TESTPYPI_WORKFLOW, PYPI_WORKFLOW):
+        text = workflow.read_text("utf-8")
+        checkouts = re.findall(
+            r"uses: actions/checkout@\S+\n(?:        with:\n((?:          .*\n)+))?", text
+        )
+        assert checkouts, workflow.name
+        for options in checkouts:
+            assert not re.search(r"^\s+(ref|repository):", options, re.M), (
+                f"{workflow.name} checks out something other than the event's commit"
+            )
+
+
+# --------------------------------------------------------------------------
+# The master-ancestry gate, executed
+# --------------------------------------------------------------------------
+
+
+def master_gate_script() -> str:
+    """The shell script of build-dist.yml's 'Require the commit to be on master'."""
+    build = job(BUILD_WORKFLOW, "build")
+    match = re.search(
+        r"^      - name: Require the commit to be on master\n        run: \|\n"
+        r"((?:          .*\n|\n)+)",
+        build,
+        re.M,
+    )
+    assert match is not None, "build-dist.yml has no master-ancestry step"
+    return textwrap.dedent(match.group(1))
+
+
+def git(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+@pytest.fixture
+def release_checkout(tmp_path):
+    """A clone shaped like the build job's: full history, ``origin/master``.
+
+    Upstream has two reviewed commits on master, a side branch with an
+    unreviewed commit, a tag on master and a tag on the side branch.
+    """
+    if shutil.which("git") is None:
+        pytest.skip("git is not installed")
+
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    git(upstream, "init", "-q", "-b", "master")
+    git(upstream, "config", "user.name", "Test")
+    git(upstream, "config", "user.email", "test@example.invalid")
+    git(upstream, "config", "commit.gpgsign", "false")
+    git(upstream, "config", "tag.gpgsign", "false")
+    for message in ("reviewed 1", "reviewed 2"):
+        git(upstream, "commit", "-q", "--allow-empty", "-m", message)
+    git(upstream, "tag", "-a", "v9.9.9", "-m", "on master")
+    git(upstream, "checkout", "-q", "-b", "side")
+    git(upstream, "commit", "-q", "--allow-empty", "-m", "unreviewed")
+    git(upstream, "tag", "-a", "v9.9.8", "-m", "on a side branch")
+    git(upstream, "checkout", "-q", "master")
+
+    clone = tmp_path / "clone"
+    git(tmp_path, "clone", "-q", str(upstream), str(clone))
+    git(clone, "fetch", "-q", "--tags", "origin")
+    return clone
+
+
+def run_master_gate(clone: Path, checked_out: str, github_sha: str):
+    git(clone, "checkout", "-q", "--detach", checked_out)
+    sha = git(clone, "rev-parse", f"{github_sha}^{{commit}}")
+    return subprocess.run(
+        ["bash", "-e", "-c", master_gate_script()],
+        cwd=clone,
+        env={"PATH": os.environ["PATH"], "GITHUB_SHA": sha},
+        capture_output=True,
+        text=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "ref",
+    ["origin/master", "origin/master~1", "v9.9.9"],
+    ids=["master-tip", "older-master-commit", "release-tag-on-master"],
+)
+def test_master_gate_accepts_reviewed_commits(release_checkout, ref):
+    result = run_master_gate(release_checkout, ref, ref)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "ref",
+    ["origin/side", "v9.9.8"],
+    ids=["side-branch-dispatch", "release-tag-on-side-branch"],
+)
+def test_master_gate_rejects_commits_not_on_master(release_checkout, ref):
+    result = run_master_gate(release_checkout, ref, ref)
+    assert result.returncode != 0
+    assert "is not on master; refusing to publish it." in result.stdout
+
+
+def test_master_gate_rejects_a_checkout_other_than_the_triggering_commit(
+    release_checkout,
+):
+    """Even a reviewed commit is refused if it is not the event's commit."""
+    result = run_master_gate(release_checkout, "origin/master~1", "origin/master")
+    assert result.returncode != 0
+    assert "refusing to publish it." in result.stdout
 
 
 def test_no_publish_path_can_skip_the_release_check():
