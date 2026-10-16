@@ -16,10 +16,6 @@ on:
         description: "Release tag being published (v<project.version>)."
         required: true
         type: string
-      require-on-master:
-        description: Refuse to build a commit that is not already on master.
-        required: true
-        type: boolean
 
 permissions:
   contents: read
@@ -36,20 +32,23 @@ jobs:
           fetch-depth: 0  # the master-ancestry check needs history
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      # A release must be code that went through review on master, not a tag
-      # pushed on a side branch.
+      # Only code that went through review on master may be built for any
+      # index, TestPyPI included: not a side branch selected in the dispatch
+      # form, nor a tag pushed on one. This check is unconditional and is the
+      # first step after checkout, so nothing from the checked-out tree (pip
+      # build dependencies, the Makefile, tools/*.py) runs before the commit
+      # is known to be on master.
       - name: Require the commit to be on master
-        if: inputs.require-on-master
         run: |
           if ! git merge-base --is-ancestor HEAD origin/master; then
             echo "::error::$(git rev-parse HEAD) is not on master; refusing to publish it."
             exit 1
           fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Install build tooling
         run: |
