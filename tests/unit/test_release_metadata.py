@@ -450,7 +450,7 @@ def test_no_caller_can_choose_the_commit_a_release_build_checks_out():
     release workflows uses the event's own immutable commit (GITHUB_SHA).
     """
     inputs = re.search(
-        r"^  workflow_call:\n(?:    #.*\n)*    inputs:\n(.*?)(?=^  \S|^\S|\Z)",
+        r"^  workflow_call:\n(?:    #[^\n]*\n)*    inputs:\n(.*?)(?=^  \S|^\S|\Z)",
         triggers(BUILD_WORKFLOW) + "\n",
         re.M | re.S,
     )
