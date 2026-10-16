@@ -25,7 +25,8 @@ below; the generated Automatic Payments client is unchanged.
 - **Publication is now deliberate; merging to `master` releases nothing.** The
   `release-on-merge` workflow, which tagged and created a GitHub Release for
   `project.version` on every push to `master`, is removed. In its place:
-  - `publish-testpypi.yml`: manual (`workflow_dispatch`), publishes to TestPyPI;
+  - `publish-testpypi.yml`: manual (`workflow_dispatch`), requires the selected
+    commit to be already on `master`, and publishes to TestPyPI;
   - `publish-pypi.yml`: runs only when a GitHub Release is published, requires
     the tag to be exactly `v<project.version>` on a commit already on `master`,
     and publishes to PyPI from the `pypi` environment.

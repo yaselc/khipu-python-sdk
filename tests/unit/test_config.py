@@ -42,7 +42,7 @@ class TestSecretSafety:
 
     def test_repr_still_shows_useful_non_secret_context(self):
         text = repr(KhipuConfig(api_key=SECRET, base_url="https://example.com"))
-        assert "https://example.com" in text
+        assert "base_url='https://example.com'" in text
 
     def test_str_does_not_expose_api_key(self):
         assert SECRET not in str(KhipuConfig(api_key=SECRET))

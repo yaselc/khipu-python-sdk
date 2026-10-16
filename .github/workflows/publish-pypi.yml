@@ -26,7 +26,6 @@ jobs:
     with:
       ref: refs/tags/${{ github.event.release.tag_name }}
       tag: ${{ github.event.release.tag_name }}
-      require-on-master: true
 
   publish:
     needs: build

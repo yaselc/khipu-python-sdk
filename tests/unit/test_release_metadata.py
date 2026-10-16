@@ -394,12 +394,13 @@ def test_publish_workflows_build_and_check_through_the_shared_workflow():
         assert "uses: ./.github/workflows/build-dist.yml" in build, workflow.name
         assert "needs: build" in job(workflow, "publish"), workflow.name
 
-    # The production tag must be the release's tag, built from that tag, and on master.
+    # The production tag must be the release's tag, built from that tag.
     pypi_build = job(PYPI_WORKFLOW, "build")
     assert "ref: refs/tags/${{ github.event.release.tag_name }}" in pypi_build
     assert "tag: ${{ github.event.release.tag_name }}" in pypi_build
-    assert "require-on-master: true" in pypi_build
-    assert "tag: v${{ inputs.version }}" in job(TESTPYPI_WORKFLOW, "build")
+    testpypi_build = job(TESTPYPI_WORKFLOW, "build")
+    assert "ref: ${{ github.sha }}" in testpypi_build
+    assert "tag: v${{ inputs.version }}" in testpypi_build
 
     shared = BUILD_WORKFLOW.read_text("utf-8")
     assert re.search(r"^  workflow_call:", triggers(BUILD_WORKFLOW), re.M)
@@ -408,6 +409,30 @@ def test_publish_workflows_build_and_check_through_the_shared_workflow():
     assert 'tools/check_dist.py dist --tag "$TAG"' in shared
     assert "twine check --strict" in shared
     assert "git merge-base --is-ancestor HEAD origin/master" in shared
+
+
+def test_every_build_for_an_index_is_on_master_before_repository_code_runs():
+    """Both TestPyPI and PyPI build only commits already on master (Issue #28).
+
+    - no caller can opt out: the shared workflow has no input that disables
+      the ancestry check, and neither caller passes one;
+    - the check step is unconditional;
+    - it is the first step after checkout, so no step that can execute code
+      from the checked-out tree (pip, the Makefile, tools/*.py) runs before
+      the commit is known to be reviewed code on master.
+    """
+    for workflow in (BUILD_WORKFLOW, TESTPYPI_WORKFLOW, PYPI_WORKFLOW):
+        assert "require-on-master" not in workflow.read_text("utf-8"), workflow.name
+
+    steps = re.split(r"^      - name: ", job(BUILD_WORKFLOW, "build"), flags=re.M)[1:]
+    names = [step.split("\n", 1)[0] for step in steps]
+    assert names[:2] == ["Checkout", "Require the commit to be on master"], names
+
+    check = steps[1]
+    assert "if:" not in check, "the master-ancestry check must not be conditional"
+    assert "git merge-base --is-ancestor HEAD origin/master" in check
+    assert "exit 1" in check
+    assert "fetch-depth: 0" in steps[0]
 
 
 def test_no_publish_path_can_skip_the_release_check():

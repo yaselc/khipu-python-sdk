@@ -776,9 +776,10 @@ maintainer action described below.
 1. Bump `project.version` in `pyproject.toml` and move the changelog entries into
    a dated `## [X.Y.Z] - YYYY-MM-DD` section in the same pull request.
 2. **TestPyPI (optional rehearsal).** Run the *Publish to TestPyPI* workflow
-   (`.github/workflows/publish-testpypi.yml`) manually, typing the version
-   being published. The run installs the uploaded release back from TestPyPI
-   and smoke-tests it.
+   (`.github/workflows/publish-testpypi.yml`) manually from `master`, typing
+   the version being published. It refuses to build a commit that is not
+   already on `master`. The run installs the uploaded release back from
+   TestPyPI and smoke-tests it.
 3. **PyPI.** Publish a GitHub Release whose tag is exactly `vX.Y.Z` on a commit
    that is already on `master`. The *Publish to PyPI* workflow
    (`.github/workflows/publish-pypi.yml`) refuses a tag that does not match
