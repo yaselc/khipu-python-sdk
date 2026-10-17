@@ -1,10 +1,10 @@
 name: Publish to TestPyPI
 
 # Manual rehearsal of a release. Runs only when a maintainer dispatches it and
-# only publishes to TestPyPI. It builds the commit the dispatch form selected,
-# and build-dist.yml refuses that commit unless it is already on master, so a
-# side branch or a tag pushed on one cannot reach TestPyPI. Production PyPI is
-# publish-pypi.yml.
+# only publishes to TestPyPI. It builds the commit the dispatch form selected
+# (GITHUB_SHA; build-dist.yml takes no ref to build), and build-dist.yml
+# refuses that commit unless it is already on master, so a side branch or a
+# tag pushed on one cannot reach TestPyPI. Production PyPI is publish-pypi.yml.
 #
 # Publishing uses Trusted Publishing (OIDC): TestPyPI must list this
 # repository, this workflow file and the `testpypi` environment as a trusted
@@ -29,7 +29,6 @@ jobs:
   build:
     uses: ./.github/workflows/build-dist.yml
     with:
-      ref: ${{ github.sha }}
       tag: v${{ inputs.version }}
 
   publish:
@@ -64,7 +63,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Python

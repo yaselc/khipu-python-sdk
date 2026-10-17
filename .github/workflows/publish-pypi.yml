@@ -3,7 +3,9 @@ name: Publish to PyPI
 # Production publication. The only trigger is a maintainer publishing a GitHub
 # Release; merging or pushing to master never publishes, tags or creates a
 # release. The release tag must be exactly v<project.version> and must point
-# at a commit already on master (checked in build-dist.yml).
+# at a commit already on master (checked in build-dist.yml). Every job uses
+# the commit the tag pointed at when the release was published (GITHUB_SHA),
+# so moving the tag afterwards cannot change what is built or verified.
 #
 # Publishing uses Trusted Publishing (OIDC): PyPI must list this repository,
 # this workflow file and the `pypi` environment as a trusted publisher. No API
@@ -24,7 +26,6 @@ jobs:
   build:
     uses: ./.github/workflows/build-dist.yml
     with:
-      ref: refs/tags/${{ github.event.release.tag_name }}
       tag: ${{ github.event.release.tag_name }}
 
   publish:
@@ -57,7 +58,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ github.event.release.tag_name }}
           persist-credentials: false
 
       - name: Set up Python
