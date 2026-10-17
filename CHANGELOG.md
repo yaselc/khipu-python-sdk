@@ -7,8 +7,23 @@ https://semver.org/
 
 ## [Unreleased]
 
+Target release: 0.3.4
+
+A documentation and package-metadata maintenance release (#33). Its purpose is
+to publish the corrected README below as the PyPI project description; 0.3.3's
+published files and description cannot be replaced. No change to the SDK's
+runtime behaviour, public API, generated clients, OpenAPI specs or runtime
+dependencies. `project.version` is 0.3.4; until 0.3.4 is published, the README
+install commands keep naming 0.3.3, the newest release on PyPI.
+
 ### Changed
 
+- **README explains CLP and CLF minor units with examples (#33).** "Currency
+  minor units" now states that `Decimal("10000.0000")` is valid for CLP
+  because its fractional part is zero, that CLP amounts with a nonzero
+  fractional part such as `Decimal("9700.5")` are rejected, and that CLF
+  accepts four decimal places (`Decimal("1.2345")`) but not five
+  (`Decimal("1.23456")`). Documentation only: validation is unchanged.
 - **README and CHANGELOG describe the published 0.3.3 release (#31).**
   Installation no longer says 0.3.3 is unpublished: `pip install
   khipu-python-sdk==0.3.3` and the `@v0.3.3` Git install are current, and the

@@ -212,13 +212,33 @@ Every amount is validated against the currency's ISO-4217 minor-unit scale
 | BOB | 2 | | USD | 2 |
 | COP | 2 | | | |
 
+The check is on the amount's value, not on how many digits it is written with.
+An amount is valid when it has no nonzero digit beyond the currency's scale, so
+trailing zeros after the decimal point never make an amount invalid.
+
+CLP has no minor unit, so a CLP amount must be a whole number of pesos.
+`Decimal("10000.0000")` is valid for CLP: it is written with four decimal places,
+but its fractional part is zero, so it is exactly the integer 10000 (and is sent
+to Khipu as `10000`). A CLP amount with a nonzero fractional part, such as
+`Decimal("9700.5")`, is rejected:
+
 ```python
-client.create_instant_payment(amount=Decimal("10000"),   currency="CLP", ...)  # ok
-client.create_instant_payment(amount=Decimal("10000.0000"), currency="CLP", ...)  # ok
-client.create_instant_payment(amount=Decimal("9700.5"),  currency="CLP", ...)  # KhipuValidationError
+client.create_instant_payment(amount=Decimal("10000"),      currency="CLP", ...)  # ok
+client.create_instant_payment(amount=Decimal("10000.0000"), currency="CLP", ...)  # ok: fractional part is zero
+client.create_instant_payment(amount=Decimal("9700.5"),     currency="CLP", ...)  # KhipuValidationError
+```
+
+CLF (Unidad de Fomento) has four decimal places, so a CLF amount may carry up
+to four nonzero decimal digits and no more:
+
+```python
+client.create_instant_payment(amount=Decimal("1.2345"),  currency="CLF", ...)  # ok: four decimal places
+client.create_instant_payment(amount=Decimal("1.23456"), currency="CLF", ...)  # KhipuValidationError
 ```
 
 A rejected amount raises `KhipuValidationError` and **no HTTP request is made**.
+The SDK never rounds it to fit the currency: round it yourself, deliberately,
+if that is what your application means.
 
 ## Errors
 
@@ -769,25 +789,39 @@ Each change is an owner decision made in its own reviewed pull request.
 Resolving the gates publishes nothing: publication remains the deliberate
 maintainer action described below.
 
-1. Bump `project.version` in `pyproject.toml` and move the changelog entries into
-   a dated `## [X.Y.Z] - YYYY-MM-DD` section in the same pull request.
-2. **TestPyPI (optional rehearsal).** Run the *Publish to TestPyPI* workflow
+1. **Release candidate.** Bump `project.version` in `pyproject.toml` and name
+   it as `Target release: X.Y.Z` under the changelog's `## [Unreleased]`
+   section, with no date. The install commands under
+   [Installation](#installation) keep naming the newest version already on
+   PyPI, so nothing on `master` offers a version that cannot be installed.
+2. **Release cut**, in its own pull request on the day of publication. Move the
+   `## [Unreleased]` entries into a `## [X.Y.Z] - YYYY-MM-DD` section dated that
+   day, and point the install commands at `X.Y.Z`. The PyPI project page is
+   built from this README, so the release cut has to be merged before step 3:
+   the description a version is published with cannot be changed afterwards.
+3. **TestPyPI (optional rehearsal).** Run the *Publish to TestPyPI* workflow
    (`.github/workflows/publish-testpypi.yml`) manually from `master`, typing
    the version being published. It refuses to build a commit that is not
    already on `master`. The run installs the uploaded release back from
-   TestPyPI and smoke-tests it.
-3. **PyPI.** Publish a GitHub Release whose tag is exactly `vX.Y.Z` on a commit
+   TestPyPI and smoke-tests it. Rehearse the release-cut commit, the one you
+   will tag: files uploaded to TestPyPI cannot be replaced either.
+4. **PyPI.** Publish a GitHub Release whose tag is exactly `vX.Y.Z` on a commit
    that is already on `master`. The *Publish to PyPI* workflow
    (`.github/workflows/publish-pypi.yml`) refuses a tag that does not match
    `project.version` or that is not on `master`, then uploads and verifies the
    release.
-4. **After publishing.** The PyPI project page shows the README as it was
+5. **After publishing.** The PyPI project page shows the README as it was
    when that version was built, and a published version's files and
    description cannot be replaced. A README or metadata fix merged later
    reaches PyPI only with the next version.
 
 0.3.3, the first public release, was published to TestPyPI and then to PyPI
 on 2026-10-17 from tag `v0.3.3`.
+
+0.3.4, a documentation and package-metadata release whose purpose is to put
+this corrected README on PyPI, is at step 1: `project.version` is 0.3.4, but
+there is no `v0.3.4` tag and nothing has been uploaded for it, so the install
+commands above still name 0.3.3.
 
 Both workflows publish with PyPI
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through
