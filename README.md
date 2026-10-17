@@ -3,7 +3,7 @@
 [![CI](https://github.com/yaselc/khipu-python-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/yaselc/khipu-python-sdk/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/khipu-python-sdk)](https://pypi.org/project/khipu-python-sdk/)
 [![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/yaselc/khipu-python-sdk/blob/master/LICENSE)
 
 > **Community-maintained Python SDK for the Khipu API.** This project is
 > independently maintained and is **not affiliated with, endorsed by, or
@@ -85,20 +85,14 @@ installed automatically.
 
 ## Installation
 
-> **Pre-release status.** `0.3.3` is the next planned release and the first
-> planned public PyPI release. It is **not yet published**: it is on neither
-> PyPI nor TestPyPI, and tag `v0.3.3` **does not yet exist**. The latest
-> existing tag is `v0.3.2`. The PyPI and Git install commands below are for use
-> after 0.3.3 is released; until then they fail.
+### From PyPI
 
-### From PyPI (after 0.3.3 is released)
-
-The SDK will be published to PyPI as
-[`khipu-python-sdk`](https://pypi.org/project/khipu-python-sdk/), starting with
-0.3.3. The import name is `khipu_sdk`. After 0.3.3 is released:
+The SDK is published on PyPI as
+[`khipu-python-sdk`](https://pypi.org/project/khipu-python-sdk/); 0.3.3 is the
+first release published there. The import name is `khipu_sdk`.
 
 ```bash
-pip install "khipu-python-sdk==0.3.3"
+pip install khipu-python-sdk==0.3.3
 ```
 
 In `requirements.txt`:
@@ -117,14 +111,15 @@ dependencies = [
 ```
 
 Pin an exact version so an upstream release cannot silently alter payment
-behaviour in your application, and read the [changelog](CHANGELOG.md) before
-moving the pin.
+behaviour in your application, and read the
+[changelog](https://github.com/yaselc/khipu-python-sdk/blob/master/CHANGELOG.md)
+before moving the pin.
 
-### From source with Git (after 0.3.3 is released)
+### From source with Git
 
 Each PyPI release corresponds to a `vX.Y.Z` tag in this repository. The wheel
 built from a tag contains both `khipu_sdk` and the generated clients, so a Git
-install is equally functional. After tag `v0.3.3` is created by the release:
+install is equally functional:
 
 ```text
 khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.3
@@ -145,8 +140,9 @@ make install-dev
 `make smoke-dist` builds the wheel and sdist, checks their contents with
 `tools/check_dist.py`, installs each into a throwaway virtualenv and creates and
 retrieves a payment against a local mock server. It fails if a distribution is
-missing the generated clients or ships anything outside its allowlist. CI runs
-it on every push.
+missing the generated clients, ships anything outside its allowlist, or has a
+long description (this README, as shown on PyPI) with a link or image that is
+relative to the repository. CI runs it on every push.
 
 ## Configuration
 
@@ -785,16 +781,13 @@ maintainer action described below.
    (`.github/workflows/publish-pypi.yml`) refuses a tag that does not match
    `project.version` or that is not on `master`, then uploads and verifies the
    release.
-4. **First public release only (0.3.3).** Until it is released, 0.3.3's
-   changelog entries stay under `## [Unreleased]` as its target release. Once
-   0.3.3 is genuinely on PyPI and tag `v0.3.3` exists, open a small follow-up
-   pull request that:
-   - cuts the 0.3.3 entries from `## [Unreleased]` into a dated
-     `## [0.3.3] - YYYY-MM-DD` section carrying the actual release date;
-   - removes the *Pre-release status* note from [Installation](#installation);
-   - makes the install commands current instead of "after 0.3.3 is released";
-   - switches the pre-release README and CHANGELOG contract in
-     `tests/unit/test_release_metadata.py` to released-state semantics.
+4. **After publishing.** The PyPI project page shows the README as it was
+   when that version was built, and a published version's files and
+   description cannot be replaced. A README or metadata fix merged later
+   reaches PyPI only with the next version.
+
+0.3.3, the first public release, was published to TestPyPI and then to PyPI
+on 2026-10-17 from tag `v0.3.3`.
 
 Both workflows publish with PyPI
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through
@@ -803,8 +796,8 @@ this repository.
 
 ## License
 
-MIT; see [LICENSE](LICENSE). The OpenAPI documents under `openapi/` are Khipu's
-publications and are not covered by that license.
+MIT; see [LICENSE](https://github.com/yaselc/khipu-python-sdk/blob/master/LICENSE). The OpenAPI documents under `openapi/` are
+Khipu's publications and are not covered by that license.
 
-Security issues: see [SECURITY.md](SECURITY.md). Contributions: see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Security issues: see [SECURITY.md](https://github.com/yaselc/khipu-python-sdk/blob/master/SECURITY.md). Contributions: see
+[CONTRIBUTING.md](https://github.com/yaselc/khipu-python-sdk/blob/master/CONTRIBUTING.md).
