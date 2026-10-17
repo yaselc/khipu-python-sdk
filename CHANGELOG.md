@@ -7,18 +7,34 @@ https://semver.org/
 
 ## [Unreleased]
 
-Target release: 0.3.3
+### Changed
 
-Release candidate prepared on 2026-10-11 and not yet released: there is no
-`v0.3.3` tag and nothing is published to TestPyPI or PyPI. These entries move to
-a dated `## [0.3.3] - <release date>` section when 0.3.3 is actually released.
+- **README and CHANGELOG describe the published 0.3.3 release (#31).**
+  Installation no longer says 0.3.3 is unpublished: `pip install
+  khipu-python-sdk==0.3.3` and the `@v0.3.3` Git install are current, and the
+  0.3.3 entries below moved from `[Unreleased]` into a dated section.
+- **README links work on PyPI (#31).** The README is the package's long
+  description, and PyPI cannot resolve links relative to the repository, so
+  the links to `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md` and `CHANGELOG.md`
+  are now absolute GitHub URLs. `tools/check_dist.py` rejects relative link
+  and image targets in the built long description, and unit tests apply the
+  same check to the README. The already published 0.3.3 description on PyPI
+  is unchanged; the fix applies to distributions built from now on.
 
-Prepares the first PyPI release candidate. No change to the SDK's runtime
-behaviour or supported public API: `khipu_sdk`, retries (none), idempotency,
-success-status handling and every payment/PAC operation are byte-for-byte the
-same code as 0.3.2. The generated Instant Payments client changes only as
-described under [Provider spec adoption](#provider-spec-adoption-instant-payments-20)
-below; the generated Automatic Payments client is unchanged.
+## [0.3.3] - 2026-10-17
+
+First public release on PyPI. Tag `v0.3.3` and the GitHub Release were
+published on 2026-10-17; the wheel and sdist were uploaded to TestPyPI and then
+to PyPI by the release workflows with Trusted Publishing, and each upload was
+installed back from its index and smoke-tested. The release candidate was
+prepared on 2026-10-11.
+
+No change to the SDK's runtime behaviour or supported public API: `khipu_sdk`,
+retries (none), idempotency, success-status handling and every payment/PAC
+operation are byte-for-byte the same code as 0.3.2. The generated Instant
+Payments client changes only as described under
+[Provider spec adoption](#provider-spec-adoption-instant-payments-20) below; the
+generated Automatic Payments client is unchanged.
 
 ### Changed
 
@@ -47,9 +63,9 @@ below; the generated Automatic Payments client is unchanged.
 - **README** states prominently that this is a community-maintained SDK, not
   affiliated with, endorsed by or maintained by Khipu; documents PyPI as the
   install path (from 0.3.3) with a Git tag install as the alternative, and
-  points every link at `github.com/yaselc/khipu-python-sdk`. Until 0.3.3 is
-  released, Installation says it is not yet published, that `v0.3.3` does not
-  yet exist and that `v0.3.2` is the latest tag, and scopes both install
+  points every link at `github.com/yaselc/khipu-python-sdk`. Until 0.3.3 was
+  released, Installation said it was not yet published, that `v0.3.3` did not
+  yet exist and that `v0.3.2` was the latest tag, and scoped both install
   commands to after the release.
 - `make build` now builds the sdist and the wheel from that sdist; `make
   smoke-dist` checks both with the new `tools/check_dist.py` (exact package

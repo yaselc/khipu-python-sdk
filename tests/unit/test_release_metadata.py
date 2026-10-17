@@ -11,16 +11,13 @@ These tests pin that contract, plus the metadata a PyPI release depends on:
 the CHANGELOG documents the declared version, README install pins name that
 version, and the README/package metadata keep the independence disclaimer.
 
-The declared version is a release *candidate*, not proof of publication
-(Issue #22). Until 0.3.3 is actually on PyPI and tag ``v0.3.3`` exists, the
-CHANGELOG keeps its entries under ``## [Unreleased]`` as the target release
-(no dated heading), the README says it is not yet published, and its install
-commands are scoped to after the release. That state cannot be observed
-offline, so it is pinned here as an explicit contract (``PLANNED_RELEASE`` /
-``LATEST_EXISTING_TAG``). Once 0.3.3 is genuinely released, a follow-up PR
-cuts the entries into ``## [0.3.3] - <release date>``, removes the README's
-pre-release note, makes the install commands current and replaces the
-pre-release tests below with the released-state contract.
+0.3.3, the first public release, was published on 2026-10-17 (Issue #31).
+Until then the docs described it as an unpublished candidate (Issue #22); they
+now describe released state: the declared version has a dated CHANGELOG
+section below an ``## [Unreleased]`` section for future changes, and the
+README's install commands are current, with no pre-release wording left.
+Publication itself cannot be observed offline, so the first release's date is
+pinned here (``FIRST_PUBLIC_RELEASE``).
 
 The workflow checks read the YAML as text on purpose: the files are small, the
 checked lines are distinctive, and the dev environment has no YAML parser.
@@ -52,12 +49,22 @@ BUILD_WORKFLOW = WORKFLOWS / "build-dist.yml"
 
 FINAL_REPOSITORY = "https://github.com/yaselc/khipu-python-sdk"
 
-#: The declared release candidate, not yet published anywhere (Issue #22).
-PLANNED_RELEASE = "0.3.3"
-#: The newest tag that actually exists. ``v<PLANNED_RELEASE>`` does not yet.
-LATEST_EXISTING_TAG = "v0.3.2"
-#: How the README scopes every install command for ``PLANNED_RELEASE``.
-POST_RELEASE_SCOPE = f"(after {PLANNED_RELEASE} is released)"
+#: The first release published to PyPI, and the date it was published (#31).
+FIRST_PUBLIC_RELEASE = ("0.3.3", "2026-10-17")
+
+#: Wording that only described 0.3.3 before it was published (Issue #22).
+PRE_RELEASE_WORDING = (
+    "Pre-release status",
+    "next planned release",
+    "not yet published",
+    "not yet released",
+    "does not yet exist",
+    "latest existing tag",
+    "is released)",
+    "is released:",
+    "same tag from source",
+    "has not been published to PyPI yet",
+)
 
 PYPI_PIN = re.compile(r"khipu-python-sdk==(\d+\.\d+\.\d+)")
 GIT_PIN = re.compile(r"khipu-python-sdk\.git@v(\d+\.\d+\.\d+)")
@@ -74,8 +81,6 @@ VERSION_LINE = re.compile(r'^version\s*=\s*"([^"]+)"', re.M)
 
 #: The ``## [Unreleased]`` section, up to the next ``## `` heading.
 UNRELEASED_SECTION = re.compile(r"^## \[Unreleased\]\n(.*?)(?=^## )", re.M | re.S)
-#: How ``## [Unreleased]`` names the version its entries will ship as.
-TARGET_RELEASE_LINE = re.compile(r"^Target release: (\d+\.\d+\.\d+)$", re.M)
 
 
 def project_table() -> str:
@@ -94,17 +99,6 @@ def released_versions() -> list[str]:
     return [match.group(1) for match in RELEASE_HEADING.finditer(
         CHANGELOG.read_text(encoding="utf-8")
     )]
-
-
-def unreleased_target() -> str:
-    section = UNRELEASED_SECTION.search(CHANGELOG.read_text(encoding="utf-8"))
-    assert section is not None, "CHANGELOG.md has no '## [Unreleased]' section"
-    targets = TARGET_RELEASE_LINE.findall(section.group(1))
-    assert len(targets) == 1, (
-        f"'## [Unreleased]' must name exactly one 'Target release: X.Y.Z', "
-        f"found {targets}"
-    )
-    return targets[0]
 
 
 def flat(text: str) -> str:
@@ -138,44 +132,51 @@ def job(workflow: Path, name: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# Version / changelog (pre-release, Issue #22) / README pins
+# Version / changelog / README pins (released state, Issue #31)
 # --------------------------------------------------------------------------
 
 
-def test_the_declared_version_is_the_unreleased_target_release():
-    """Pre-release: the candidate's entries live under [Unreleased], targeted."""
-    assert declared_version() == PLANNED_RELEASE, (
-        f"pyproject declares {declared_version()}; the pre-release contract "
-        f"still describes {PLANNED_RELEASE}"
-    )
-    assert unreleased_target() == declared_version(), (
-        f"CHANGELOG [Unreleased] targets {unreleased_target()}, but pyproject "
-        f"declares {declared_version()}"
+def test_the_declared_version_is_the_newest_dated_release():
+    """``project.version`` and its dated CHANGELOG section ship together."""
+    assert released_versions(), "CHANGELOG.md has no dated release section"
+    assert released_versions()[0] == declared_version(), (
+        f"newest dated CHANGELOG release is {released_versions()[0]}, but "
+        f"pyproject declares {declared_version()}"
     )
 
 
-def test_the_declared_version_has_no_released_changelog_section():
-    """A dated heading claims a release; 0.3.3 has not been released."""
-    assert declared_version() not in released_versions(), (
-        f"CHANGELOG.md has a dated '## [{declared_version()}] - <date>' section, "
-        f"but {declared_version()} is not released yet"
-    )
+def test_the_first_public_release_is_dated_with_its_publication_date():
+    version, date = FIRST_PUBLIC_RELEASE
+    changelog = CHANGELOG.read_text(encoding="utf-8")
+
+    assert f"\n## [{version}] - {date}\n" in changelog
+    assert released_versions().count(version) == 1
 
 
-def test_the_newest_released_changelog_section_is_the_latest_existing_tag():
-    """The newest dated section is the newest release that actually exists."""
-    assert f"v{released_versions()[0]}" == LATEST_EXISTING_TAG, (
-        f"newest dated CHANGELOG release is {released_versions()[0]}, but the "
-        f"latest existing tag is {LATEST_EXISTING_TAG}"
-    )
+def test_the_changelog_keeps_an_unreleased_section_above_every_release():
+    changelog = CHANGELOG.read_text(encoding="utf-8")
+    headings = re.findall(r"^## .*$", changelog, re.M)
+
+    assert headings[0] == "## [Unreleased]", headings[:2]
+    assert headings.count("## [Unreleased]") == 1
+    section = UNRELEASED_SECTION.search(changelog)
+    assert section is not None
+    assert "Target release:" not in section.group(1)
+
+
+def test_the_changelog_no_longer_calls_a_released_version_unpublished():
+    changelog = flat(CHANGELOG.read_text(encoding="utf-8"))
+
+    assert "not yet released" not in changelog
+    assert "nothing is published to TestPyPI or PyPI" not in changelog
+    assert "there is no `v0.3.3` tag" not in changelog
 
 
 def test_readme_install_pins_point_at_the_declared_version():
     """A README still pinning the previous release sends consumers to old code.
 
-    Every pin names the declared version -- never an older, existing tag such
-    as ``v0.3.2`` -- and every pin lives in the Installation section, where
-    the pre-release tests below can scope it.
+    Every pin names the declared version -- never an older tag such as
+    ``v0.3.2`` -- and every pin lives in the Installation section.
     """
     readme = README.read_text("utf-8")
     pypi_pins = set(PYPI_PIN.findall(readme))
@@ -195,68 +196,21 @@ def test_readme_install_pins_point_at_the_declared_version():
         )
 
 
-# --------------------------------------------------------------------------
-# Pre-release README contract (Issue #22) -- replace once 0.3.3 is released
-# --------------------------------------------------------------------------
-
-
-def test_readme_states_the_pre_release_status_before_any_install_command():
-    """The candidate version is not a published release, and the README says so."""
+def test_readme_installs_the_declared_version_from_pypi_today():
+    """The first command a reader copies is the current, unscoped pip install."""
     installation = readme_installation()
-    status = flat(installation[: installation.index("\n### ")])
+    first_command = re.search(r"```bash\n(.*?)\n```", installation, re.S)
 
-    assert f"`{PLANNED_RELEASE}` is the next planned release" in status
-    assert "the first planned public PyPI release" in status
-    assert "It is not yet published" in status
-    assert f"tag `v{PLANNED_RELEASE}` does not yet exist" in status
-    assert f"The latest existing tag is `{LATEST_EXISTING_TAG}`" in status
-    assert f"are for use after {PLANNED_RELEASE} is released" in status
+    assert first_command is not None, "README Installation has no bash command"
+    assert first_command.group(1) == f"pip install khipu-python-sdk=={declared_version()}"
+    assert installation.lstrip().startswith("### From PyPI\n"), installation[:80]
 
 
-def test_readme_install_commands_are_scoped_to_after_the_release():
-    """No 0.3.3 install command may read as executable today."""
-    subsections = re.split(r"^### ", readme_installation(), flags=re.M)[1:]
-    pinned = [
-        section for section in subsections
-        if PYPI_PIN.search(section) or GIT_PIN.search(section)
-    ]
-
-    assert pinned, "README Installation has no pinned install subsection"
-    for section in pinned:
-        heading = section.splitlines()[0]
-        assert heading.endswith(POST_RELEASE_SCOPE), (
-            f"install subsection {heading!r} is not scoped {POST_RELEASE_SCOPE!r}"
-        )
-        before_first_command = flat(section[: section.index("```")])
-        assert f"After {PLANNED_RELEASE} is released" in before_first_command or (
-            f"After tag `v{PLANNED_RELEASE}` is created" in before_first_command
-        ), heading
-
-
-def test_readme_has_no_false_install_from_the_same_tag_fallback():
-    """``v0.3.3`` does not exist either, so 'use the tag instead' is false."""
+def test_readme_has_no_pre_release_wording():
     readme = flat(README.read_text("utf-8"))
 
-    assert "same tag from source" not in readme
-    assert "has not been published to PyPI yet; install" not in readme
-
-
-def test_readme_records_the_post_release_follow_up():
-    """The transition to released-state docs is a written release step."""
-    readme = flat(README.read_text("utf-8"))
-
-    step = readme[readme.index(f"First public release only ({PLANNED_RELEASE}).") :]
-    step = step[: step.index("Both workflows publish")]
-
-    assert "stay under `## [Unreleased]` as its target release" in step
-    assert (
-        f"cuts the {PLANNED_RELEASE} entries from `## [Unreleased]` into a dated "
-        f"`## [{PLANNED_RELEASE}] - YYYY-MM-DD` section carrying the actual "
-        "release date"
-    ) in step
-    assert "removes the Pre-release status note" in step
-    assert "makes the install commands current" in step
-    assert "tests/unit/test_release_metadata.py` to released-state semantics" in step
+    for wording in PRE_RELEASE_WORDING:
+        assert wording not in readme, wording
 
 
 # --------------------------------------------------------------------------

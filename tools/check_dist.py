@@ -15,7 +15,12 @@ Run against a freshly built ``dist/`` (``make build``). It fails when:
 - ``--tag`` is given, i.e. something is about to be published, and a
   publication gate from Issue #18 is still closed: ``LICENSE`` still has the
   template copyright placeholder, or ``PUBLICATION_GATES.toml`` does not record
-  ``approved = true`` (with evidence) for the Khipu redistribution gate.
+  ``approved = true`` (with evidence) for the Khipu redistribution gate;
+- either artifact's long description (the README, rendered as the PyPI
+  project page) links or embeds a target PyPI cannot resolve: anything other
+  than an absolute ``https://``/``http://``/``mailto:`` URL or an in-document
+  ``#fragment``, such as ``LICENSE`` or ``docs/guide.md`` relative to the
+  repository.
 
 Only the standard library is used, and only offline file reads are made.
 """
@@ -29,6 +34,7 @@ import tarfile
 import zipfile
 from email.parser import HeaderParser
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlsplit
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -67,6 +73,56 @@ FORBIDDEN = re.compile(
     r")",
     re.I,
 )
+
+#: Markdown code is text, not links: fenced blocks first, then inline spans.
+FENCED_CODE = re.compile(r"^ {0,3}(`{3,}|~{3,})[^\n]*\n.*?^ {0,3}\1[ \t]*$", re.M | re.S)
+CODE_SPAN = re.compile(r"(`+).+?\1", re.S)
+
+#: Where a long description can point a reader or a browser:
+#: ``[text](target)`` and ``![alt](target)``, reference definitions
+#: ``[label]: target``, and raw HTML ``href``/``src`` attributes. The first
+#: pattern is a lookahead, so matches may overlap and a linked badge
+#: ``[![alt](image)](target)`` yields both ``target`` and ``image``.
+#: ``<https://...>`` autolinks are absolute by construction.
+LINK_TARGETS = (
+    re.compile(r"(?=\[(?:[^\[\]\n]|\[[^\[\]\n]*\])*\]\(\s*<?([^\s<>()]*))"),
+    re.compile(r"^ {0,3}\[[^\]\n]+\]:[ \t]*<?([^\s<>]*)", re.M),
+    re.compile(r"\b(?:href|src)[ \t]*=[ \t]*[\"']([^\"']*)[\"']", re.I),
+)
+
+#: Targets that resolve wherever the description is rendered. ``http`` is
+#: tolerated because it resolves too; the README itself uses ``https``.
+ABSOLUTE_SCHEMES = {"https", "http"}
+
+
+def without_code(markdown: str) -> str:
+    """``markdown`` with fenced code blocks and inline code spans removed."""
+    return CODE_SPAN.sub("", FENCED_CODE.sub("", markdown))
+
+
+def link_targets(markdown: str) -> list[str]:
+    """Every link and image target in ``markdown``, in document order per syntax."""
+    text = without_code(markdown)
+    return [target for pattern in LINK_TARGETS for target in pattern.findall(text)]
+
+
+def is_portable_target(target: str) -> bool:
+    """Whether ``target`` resolves outside GitHub, e.g. on the PyPI project page.
+
+    A relative target (``LICENSE``, ``./docs/``, ``../x``, ``/SECURITY.md``)
+    only works where the renderer knows the repository, which PyPI does not.
+    """
+    if target.startswith("#"):
+        return len(target) > 1
+    parts = urlsplit(target)
+    if parts.scheme == "mailto":
+        return bool(parts.path)
+    return parts.scheme in ABSOLUTE_SCHEMES and bool(parts.netloc)
+
+
+def unportable_link_targets(markdown: str) -> list[str]:
+    """The targets in ``markdown`` that :func:`is_portable_target` rejects."""
+    return [target for target in link_targets(markdown) if not is_portable_target(target)]
 
 
 def declared_version() -> str:
@@ -168,8 +224,14 @@ def check_metadata(kind: str, raw: str, version: str) -> list[str]:
     for field, value in expected.items():
         if headers.get(field) != value:
             problems.append(f"{kind} metadata {field} is {headers.get(field)!r}, expected {value!r}")
-    if "not affiliated with" not in headers.get_payload():
+    description = headers.get_payload()
+    if "not affiliated with" not in description:
         problems.append(f"{kind} long description lost the independence disclaimer")
+    for target in unportable_link_targets(description):
+        problems.append(
+            f"{kind} long description links {target!r}, which PyPI cannot "
+            "resolve; use an absolute https:// URL or an in-document #fragment"
+        )
     return problems
 
 
