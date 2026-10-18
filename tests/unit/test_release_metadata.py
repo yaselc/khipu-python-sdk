@@ -29,6 +29,14 @@ commands at the new version, sets ``LATEST_PUBLISHED_RELEASE`` to it and
 ``RELEASE_CANDIDATE`` to ``None``. 0.3.3, the first public release, was
 published on 2026-10-17 (Issue #31); before that it was a candidate too (#22).
 
+The release cut is merged *before* the upload, because the README it freezes
+becomes the PyPI project description. From that merge until the upload,
+``LATEST_PUBLISHED_RELEASE`` is the intended publication (version and date),
+not evidence that the index already has it; these offline tests cannot tell
+the difference. 0.3.4 is in that state after its release cut (Issue #35),
+dated for publication on 2026-10-18. If publication slips, the CHANGELOG date
+and this constant are corrected together before tagging or uploading.
+
 The workflow checks read the YAML as text on purpose: the files are small, the
 checked lines are distinctive, and the dev environment has no YAML parser.
 
@@ -62,12 +70,13 @@ FINAL_REPOSITORY = "https://github.com/yaselc/khipu-python-sdk"
 #: The first release published to PyPI, and the date it was published (#31).
 FIRST_PUBLIC_RELEASE = ("0.3.3", "2026-10-17")
 
-#: The newest release published to PyPI, and the date it was published.
-LATEST_PUBLISHED_RELEASE = ("0.3.3", "2026-10-17")
+#: The newest release published to PyPI, and the date it was published. After
+#: a release cut and before its upload, the intended publication (#35).
+LATEST_PUBLISHED_RELEASE = ("0.3.4", "2026-10-18")
 
 #: ``project.version`` while it is prepared but not tagged or uploaded (#33);
 #: ``None`` when the declared version is ``LATEST_PUBLISHED_RELEASE``.
-RELEASE_CANDIDATE: str | None = "0.3.4"
+RELEASE_CANDIDATE: str | None = None
 
 #: Wording that only described 0.3.3 before it was published (Issue #22).
 PRE_RELEASE_WORDING = (
@@ -278,7 +287,10 @@ def test_readme_states_the_release_candidate_without_offering_it():
     readme = flat(README.read_text("utf-8"))
 
     if RELEASE_CANDIDATE is None:
+        latest = LATEST_PUBLISHED_RELEASE[0]
         assert "is at step 1" not in readme
+        assert f"there is no `v{latest}` tag" not in readme
+        assert "the install commands above still name" not in readme
         return
     assert f"khipu-python-sdk=={RELEASE_CANDIDATE}" not in readme
     assert f"khipu-python-sdk.git@v{RELEASE_CANDIDATE}" not in readme

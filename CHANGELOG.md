@@ -7,16 +7,19 @@ https://semver.org/
 
 ## [Unreleased]
 
-Target release: 0.3.4
+## [0.3.4] - 2026-10-18
 
-A documentation and package-metadata maintenance release (#33). Its purpose is
-to publish the corrected README below as the PyPI project description; 0.3.3's
-published files and description cannot be replaced. No change to the SDK's
-runtime behaviour, public API, generated clients, OpenAPI specs or runtime
-dependencies. `project.version` is 0.3.4; until 0.3.4 is published, the README
-install commands keep naming 0.3.3, the newest release on PyPI.
+A documentation and package-metadata maintenance release (#33, #35). Its
+purpose is to publish the corrected README below as the PyPI project
+description; 0.3.3's published files and description cannot be replaced. No
+change to the SDK's runtime behaviour, public API, generated clients, OpenAPI
+specs or runtime dependencies.
 
 ### Changed
+
+- **README installs 0.3.4 (#35).** The `pip install`, `requirements.txt`,
+  `pyproject.toml` and Git (`@v0.3.4`) examples under Installation pin 0.3.4,
+  the version this README is published with.
 
 - **README explains CLP and CLF minor units with examples (#33).** "Currency
   minor units" now states that `Decimal("10000.0000")` is valid for CLP

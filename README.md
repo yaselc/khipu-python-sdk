@@ -92,13 +92,13 @@ The SDK is published on PyPI as
 first release published there. The import name is `khipu_sdk`.
 
 ```bash
-pip install khipu-python-sdk==0.3.3
+pip install khipu-python-sdk==0.3.4
 ```
 
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk==0.3.3
+khipu-python-sdk==0.3.4
 ```
 
 Or in `pyproject.toml`:
@@ -106,7 +106,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk==0.3.3",
+  "khipu-python-sdk==0.3.4",
 ]
 ```
 
@@ -122,7 +122,7 @@ built from a tag contains both `khipu_sdk` and the generated clients, so a Git
 install is equally functional:
 
 ```text
-khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.3
+khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.4
 ```
 
 Pin a tag rather than `@master`: `master` is not a release.
@@ -818,10 +818,9 @@ maintainer action described below.
 0.3.3, the first public release, was published to TestPyPI and then to PyPI
 on 2026-10-17 from tag `v0.3.3`.
 
-0.3.4, a documentation and package-metadata release whose purpose is to put
-this corrected README on PyPI, is at step 1: `project.version` is 0.3.4, but
-there is no `v0.3.4` tag and nothing has been uploaded for it, so the install
-commands above still name 0.3.3.
+0.3.4, a documentation and package-metadata release dated 2026-10-18, puts
+this corrected README on PyPI from tag `v0.3.4`. It changes no runtime
+behaviour, and the install commands above name it.
 
 Both workflows publish with PyPI
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through
