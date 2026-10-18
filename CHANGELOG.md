@@ -18,6 +18,13 @@ https://semver.org/
   Ubuntu 26.04 from 2026-10-19), and the CI checkouts no longer persist the
   job token. A unit test keeps actions, runners and checkouts that way.
   Workflow change only: nothing in the package changes.
+- **README PyPI badge requests the `.svg` URL (#37).** GitHub kept serving
+  a "package or version not found" image for the old badge URL, cached on
+  2026-10-17 before 0.3.3 was first uploaded, although the PyPI JSON API and
+  Shields.io both report the current version. The badge stays the same
+  dynamic Shields.io badge, under the URL form the License badge already
+  uses, so GitHub fetches it afresh. The PyPI project page shows this README
+  only from the next release.
 
 ## [0.3.4] - 2026-10-18
 
