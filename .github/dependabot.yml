@@ -1,0 +1,25 @@
+# Dependabot version updates for the GitHub Actions used by the workflows (#39).
+#
+# Every action is pinned to a full commit SHA with its release in a trailing
+# `# vX.Y.Z` comment (#37). Dependabot understands that form: an update
+# replaces the SHA with the new release's commit and rewrites the comment to
+# the new version, so a proposal never falls back to a mutable tag.
+#
+# Updates are proposals only. Each one is an ordinary pull request that goes
+# through review and exact-head CI and is merged by the maintainer; nothing
+# here or in any workflow merges, tags, releases or publishes automatically.
+#
+# GitHub Actions only, on purpose: Python dependencies and every other
+# ecosystem are deliberate maintenance steps (see pyproject.toml).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    # "/" scans .github/workflows/, which holds all four workflows, including
+    # the reusable build-dist.yml. Its local `uses: ./.github/workflows/...`
+    # references are not dependencies and are left alone.
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"

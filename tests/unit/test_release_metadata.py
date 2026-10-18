@@ -64,6 +64,7 @@ WORKFLOWS = REPO / ".github" / "workflows"
 TESTPYPI_WORKFLOW = WORKFLOWS / "publish-testpypi.yml"
 PYPI_WORKFLOW = WORKFLOWS / "publish-pypi.yml"
 BUILD_WORKFLOW = WORKFLOWS / "build-dist.yml"
+DEPENDABOT = REPO / ".github" / "dependabot.yml"
 
 FINAL_REPOSITORY = "https://github.com/yaselc/khipu-python-sdk"
 
@@ -437,6 +438,58 @@ def test_workflows_pin_actions_runners_and_drop_checkout_credentials():
         for runner in re.findall(r"runs-on: (\S+)", workflow.read_text("utf-8"))
     }
     assert len(images) == 1, images
+
+
+def test_dependabot_proposes_github_actions_updates_and_nothing_else():
+    """Dependabot only watches the pinned actions, weekly, a few PRs at a time (#39).
+
+    The configuration is compared as a whole (comments aside), so adding an
+    ecosystem, a private registry, ``insecure-external-code-execution``, a
+    different target branch or any other option is a reviewed edit of this
+    test. Whether GitHub actually raises update PRs is server-side behavior
+    and cannot be checked offline; the SHA/version-comment form Dependabot
+    rewrites is pinned by the test above.
+    """
+    assert sorted(p.name for p in DEPENDABOT.parent.glob("dependabot.y*ml")) == [
+        "dependabot.yml"
+    ]
+    for other in ("renovate.json", "renovate.json5", ".renovaterc", ".renovaterc.json"):
+        assert not (REPO / other).exists(), other
+        assert not (REPO / ".github" / other).exists(), other
+
+    lines = [
+        line.rstrip()
+        for line in DEPENDABOT.read_text("utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert lines == [
+        "version: 2",
+        "updates:",
+        '  - package-ecosystem: "github-actions"',
+        '    directory: "/"',
+        "    schedule:",
+        '      interval: "weekly"',
+        "    open-pull-requests-limit: 3",
+        "    commit-message:",
+        '      prefix: "ci"',
+    ]
+
+
+def test_no_workflow_approves_or_merges_pull_requests():
+    """Dependency update PRs are reviewed and merged by the maintainer only (#39).
+
+    No workflow runs on ``pull_request_target`` (which would hand a PR's
+    workflow run a write token and secrets), asks for write access to pull
+    requests, or approves, auto-merges or merges a PR.
+    """
+    for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
+        text = workflow.read_text("utf-8")
+        assert "pull_request_target" not in text, workflow.name
+        assert "pull-requests: write" not in text, workflow.name
+        assert "dependabot/fetch-metadata" not in text, workflow.name
+        assert not re.search(r"gh pr (merge|review)\b", text), workflow.name
+        assert "auto-merge" not in text, workflow.name
+        assert "--auto" not in text, workflow.name
 
 
 @pytest.mark.parametrize(

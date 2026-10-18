@@ -7,6 +7,15 @@ https://semver.org/
 
 ## [Unreleased]
 
+### Added
+
+- **Dependabot proposes GitHub Actions updates (#39).**
+  `.github/dependabot.yml` checks the actions of all four workflows weekly
+  and opens at most three update pull requests at a time, keeping each
+  action pinned to a full commit SHA with its version comment. Updates are
+  reviewed and merged by hand like any other change; no other ecosystem is
+  enabled. Repository configuration only: nothing in the package changes.
+
 ### Changed
 
 - **GitHub Actions run on Node 24 with pinned actions and runner (#37).**
