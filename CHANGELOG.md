@@ -7,6 +7,18 @@ https://semver.org/
 
 ## [Unreleased]
 
+### Changed
+
+- **GitHub Actions run on Node 24 with pinned actions and runner (#37).**
+  CI and the release workflows use `actions/checkout` v7.0.1,
+  `actions/setup-python` v7.0.0, `actions/upload-artifact` v7.0.2 and
+  `actions/download-artifact` v8.0.2, which run natively on Node 24 (GitHub
+  no longer provides Node 20). Every action is pinned to a full commit SHA,
+  every job runs on `ubuntu-24.04` instead of `ubuntu-latest` (which moves to
+  Ubuntu 26.04 from 2026-10-19), and the CI checkouts no longer persist the
+  job token. A unit test keeps actions, runners and checkouts that way.
+  Workflow change only: nothing in the package changes.
+
 ## [0.3.4] - 2026-10-18
 
 A documentation and package-metadata maintenance release (#33, #35). Its
