@@ -7,6 +7,25 @@ https://semver.org/
 
 ## [Unreleased]
 
+### Changed
+
+- **GitHub Actions run on Node 24 with pinned actions and runner (#37).**
+  CI and the release workflows use `actions/checkout` v7.0.1,
+  `actions/setup-python` v7.0.0, `actions/upload-artifact` v7.0.2 and
+  `actions/download-artifact` v8.0.2, which run natively on Node 24 (GitHub
+  no longer provides Node 20). Every action is pinned to a full commit SHA,
+  every job runs on `ubuntu-24.04` instead of `ubuntu-latest` (which moves to
+  Ubuntu 26.04 from 2026-10-19), and the CI checkouts no longer persist the
+  job token. A unit test keeps actions, runners and checkouts that way.
+  Workflow change only: nothing in the package changes.
+- **README PyPI badge requests the `.svg` URL (#37).** GitHub kept serving
+  a "package or version not found" image for the old badge URL, cached on
+  2026-10-17 before 0.3.3 was first uploaded, although the PyPI JSON API and
+  Shields.io both report the current version. The badge stays the same
+  dynamic Shields.io badge, under the URL form the License badge already
+  uses, so GitHub fetches it afresh. The PyPI project page shows this README
+  only from the next release.
+
 ## [0.3.4] - 2026-10-18
 
 A documentation and package-metadata maintenance release (#33, #35). Its

@@ -1,7 +1,7 @@
 # Khipu Python SDK
 
 [![CI](https://github.com/yaselc/khipu-python-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/yaselc/khipu-python-sdk/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/khipu-python-sdk)](https://pypi.org/project/khipu-python-sdk/)
+[![PyPI](https://img.shields.io/pypi/v/khipu-python-sdk.svg)](https://pypi.org/project/khipu-python-sdk/)
 [![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/yaselc/khipu-python-sdk/blob/master/LICENSE)
 

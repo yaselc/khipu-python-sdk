@@ -394,6 +394,51 @@ def test_no_workflow_releases_on_merge_or_push():
             assert workflow in (TESTPYPI_WORKFLOW, PYPI_WORKFLOW), workflow.name
 
 
+def test_workflows_pin_actions_runners_and_drop_checkout_credentials():
+    """What a workflow runs cannot change without a reviewed edit (#37).
+
+    - every action other than the local build-dist.yml is pinned to a full
+      commit SHA, with its release in a trailing ``# vX.Y.Z`` comment, so a
+      moved or re-pointed tag cannot swap the code that builds or publishes;
+    - every job names an explicit runner image, never a floating ``-latest``
+      label that GitHub relabels on its own schedule;
+    - no checkout leaves the job token in the workspace for later steps.
+    """
+    for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
+        text = workflow.read_text("utf-8")
+
+        for ref in re.findall(r"^\s+(?:- )?uses: (\S+.*)$", text, re.M):
+            if ref.startswith("./.github/workflows/"):
+                continue
+            assert re.fullmatch(
+                r"[\w.-]+/[\w.-]+@[0-9a-f]{40}  # v\d+\.\d+\.\d+", ref
+            ), f"{workflow.name}: {ref!r} is not pinned to a commit SHA"
+
+        runners = re.findall(r"^\s+runs-on: (\S+)$", text, re.M)
+        assert len(runners) == text.count("runs-on:"), workflow.name
+        for runner in runners:
+            assert re.fullmatch(r"ubuntu-\d\d\.\d\d", runner), (
+                f"{workflow.name}: runs-on {runner!r} is not a pinned image"
+            )
+
+        checkouts = re.findall(
+            r"uses: actions/checkout@\S+.*\n((?: {8,}\S.*\n)*)", text
+        )
+        for options in checkouts:
+            assert "persist-credentials: false" in options, (
+                f"{workflow.name}: a checkout persists the job token"
+            )
+        assert "persist-credentials: true" not in text, workflow.name
+
+    # Every job of every workflow is on the same image.
+    images = {
+        runner
+        for workflow in WORKFLOWS.glob("*.y*ml")
+        for runner in re.findall(r"runs-on: (\S+)", workflow.read_text("utf-8"))
+    }
+    assert len(images) == 1, images
+
+
 @pytest.mark.parametrize(
     ("workflow", "trigger"),
     [
@@ -513,7 +558,9 @@ def test_no_caller_can_choose_the_commit_a_release_build_checks_out():
     for workflow in (BUILD_WORKFLOW, TESTPYPI_WORKFLOW, PYPI_WORKFLOW):
         text = workflow.read_text("utf-8")
         checkouts = re.findall(
-            r"uses: actions/checkout@\S+\n(?:        with:\n((?:          .*\n)+))?", text
+            r"uses: actions/checkout@\S+(?:  # \S+)?\n"
+            r"(?:        with:\n((?:          .*\n)+))?",
+            text,
         )
         assert checkouts, workflow.name
         for options in checkouts:
