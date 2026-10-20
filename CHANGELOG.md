@@ -7,15 +7,14 @@ https://semver.org/
 
 ## [Unreleased]
 
-Target release: 0.3.5
+## [0.3.5] - 2026-10-21
 
-A bug-fix release (#44). Its runtime change is #42: the SDK keeps the HTTP
-status and body of a response the generated clients cannot parse, and
+A bug-fix release (#44, #46). Its runtime change is #42: the SDK keeps the
+HTTP status and body of a response the generated clients cannot parse, and
 classifies a non-2xx status as `KhipuApiError` before any parsing. It also
-ships the repository maintenance of #37 and #39. No public API, generated
-client, OpenAPI spec or runtime dependency changes. `project.version` is
-0.3.5; until 0.3.5 is published, the README install commands keep naming
-0.3.4.
+ships the repository maintenance of #37 and #39 and a reorganisation of the
+release documentation (#46). No public API, generated client, OpenAPI spec or
+runtime dependency changes.
 
 ### Added
 
@@ -28,6 +27,16 @@ client, OpenAPI spec or runtime dependency changes. `project.version` is
 
 ### Changed
 
+- **README installs 0.3.5; the release procedure moves to
+  `docs/RELEASING.md` (#46).** The `pip install`, `requirements.txt`,
+  `pyproject.toml` and Git (`@v0.3.5`) examples under Installation pin 0.3.5.
+  The README "Releases" section no longer accumulates a paragraph per version:
+  it links to this changelog, the GitHub Releases page and the maintainer
+  procedure in
+  [`docs/RELEASING.md`](https://github.com/yaselc/khipu-python-sdk/blob/master/docs/RELEASING.md).
+  Unit tests now reject any README install reference, or any mention of
+  another released version, that does not name the latest published release.
+  Documentation and tests only: nothing in the package's code changes.
 - **GitHub Actions run on Node 24 with pinned actions and runner (#37).**
   CI and the release workflows use `actions/checkout` v7.0.1,
   `actions/setup-python` v7.0.0, `actions/upload-artifact` v7.0.2 and

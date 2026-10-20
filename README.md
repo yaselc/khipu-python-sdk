@@ -88,17 +88,17 @@ installed automatically.
 ### From PyPI
 
 The SDK is published on PyPI as
-[`khipu-python-sdk`](https://pypi.org/project/khipu-python-sdk/); 0.3.3 is the
-first release published there. The import name is `khipu_sdk`.
+[`khipu-python-sdk`](https://pypi.org/project/khipu-python-sdk/). The import
+name is `khipu_sdk`.
 
 ```bash
-pip install khipu-python-sdk==0.3.4
+pip install khipu-python-sdk==0.3.5
 ```
 
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk==0.3.4
+khipu-python-sdk==0.3.5
 ```
 
 Or in `pyproject.toml`:
@@ -106,7 +106,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk==0.3.4",
+  "khipu-python-sdk==0.3.5",
 ]
 ```
 
@@ -122,7 +122,7 @@ built from a tag contains both `khipu_sdk` and the generated clients, so a Git
 install is equally functional:
 
 ```text
-khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.4
+khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.5
 ```
 
 Pin a tag rather than `@master`: `master` is not a release.
@@ -811,69 +811,19 @@ make test
 ## Releases
 
 Merging to `master` does **not** release anything: it creates no tag, no GitHub
-Release and no package upload. Publishing is always a deliberate maintainer
-action, and both paths below build a fresh wheel and sdist, run
-`tools/check_dist.py` and smoke-test both artifacts from a clean install before
-uploading anything.
+Release and no package upload. A version is published only when the maintainer
+publishes a GitHub Release tagged `vX.Y.Z` on a reviewed commit already on
+`master`. The release workflows then build a fresh wheel and sdist, check and
+smoke-test them, and upload them with PyPI
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC). No PyPI
+API token is stored in this repository.
 
-`tools/check_dist.py --tag`, which both publish workflows run, refuses to
-publish unless both Issue #18 publication gates are resolved. Both are:
-
-- `LICENSE` names its confirmed copyright holder. Resolved: it carries
-  `Copyright (c) 2025-2026 Yasel Couce` (Issue #24), and the check still
-  refuses the template placeholder should it return; and
-- `PUBLICATION_GATES.toml` records `approved = true`, with evidence, for an
-  explicit basis to redistribute Khipu's OpenAPI documents and the clients
-  generated from them. Resolved: Khipu's written permission is recorded in
-  Issue #18 (Issue #26), and the check still refuses `approved = false` or an
-  approval without evidence should either return.
-
-Each change is an owner decision made in its own reviewed pull request.
-Resolving the gates publishes nothing: publication remains the deliberate
-maintainer action described below.
-
-1. **Release candidate.** Bump `project.version` in `pyproject.toml` and name
-   it as `Target release: X.Y.Z` under the changelog's `## [Unreleased]`
-   section, with no date. The install commands under
-   [Installation](#installation) keep naming the newest version already on
-   PyPI, so nothing on `master` offers a version that cannot be installed.
-2. **Release cut**, in its own pull request on the day of publication. Move the
-   `## [Unreleased]` entries into a `## [X.Y.Z] - YYYY-MM-DD` section dated that
-   day, and point the install commands at `X.Y.Z`. The PyPI project page is
-   built from this README, so the release cut has to be merged before step 3:
-   the description a version is published with cannot be changed afterwards.
-3. **TestPyPI (optional rehearsal).** Run the *Publish to TestPyPI* workflow
-   (`.github/workflows/publish-testpypi.yml`) manually from `master`, typing
-   the version being published. It refuses to build a commit that is not
-   already on `master`. The run installs the uploaded release back from
-   TestPyPI and smoke-tests it. Rehearse the release-cut commit, the one you
-   will tag: files uploaded to TestPyPI cannot be replaced either.
-4. **PyPI.** Publish a GitHub Release whose tag is exactly `vX.Y.Z` on a commit
-   that is already on `master`. The *Publish to PyPI* workflow
-   (`.github/workflows/publish-pypi.yml`) refuses a tag that does not match
-   `project.version` or that is not on `master`, then uploads and verifies the
-   release.
-5. **After publishing.** The PyPI project page shows the README as it was
-   when that version was built, and a published version's files and
-   description cannot be replaced. A README or metadata fix merged later
-   reaches PyPI only with the next version.
-
-0.3.3, the first public release, was published to TestPyPI and then to PyPI
-on 2026-10-17 from tag `v0.3.3`.
-
-0.3.4, a documentation and package-metadata release, was published to PyPI
-on 2026-10-18 from tag `v0.3.4`. It changes no runtime behaviour, and the
-install commands above name it.
-
-0.3.5, a bug-fix release that keeps the HTTP status and body of responses the
-generated clients cannot parse, is at step 1: `project.version` is 0.3.5, but
-there is no `v0.3.5` tag and nothing has been uploaded for it, so the install
-commands above still name 0.3.4.
-
-Both workflows publish with PyPI
-[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through
-the GitHub environments `testpypi` and `pypi`. No PyPI API token is stored in
-this repository.
+- What changed in each version:
+  [CHANGELOG.md](https://github.com/yaselc/khipu-python-sdk/blob/master/CHANGELOG.md).
+- Tags and release notes:
+  [GitHub Releases](https://github.com/yaselc/khipu-python-sdk/releases).
+- How a release is prepared, cut, rehearsed and published:
+  [docs/RELEASING.md](https://github.com/yaselc/khipu-python-sdk/blob/master/docs/RELEASING.md).
 
 ## License
 
