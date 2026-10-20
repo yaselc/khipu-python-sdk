@@ -252,7 +252,7 @@ result backends.
 | `KhipuTimeoutError` | Request timed out | **Unknown** — see below |
 | `KhipuConnectionError` | DNS / TCP / TLS / broken stream | Usually no; check the flag |
 | `KhipuApiError` | Khipu answered with a non-success status | **Yes** |
-| `KhipuResponseError` | Success status, but the body was malformed or incomplete | Yes |
+| `KhipuResponseError` | Success status, but the body was malformed, incomplete or came with an undocumented status | **Yes** — on a create, Khipu may have acted; see below |
 
 `KhipuTimeoutError` and `KhipuConnectionError` share a base,
 `KhipuTransportError`, and carry:
@@ -279,8 +279,42 @@ except KhipuApiError as exc:
     exc.body          # bounded raw body text
 ```
 
-Bodies are truncated before they reach a message, and request headers are never
-touched, so the API key cannot leak through an exception.
+Every non-2xx status is a `KhipuApiError` with its real `status_code`, even when
+the body is empty, is not JSON, or does not match the error schema Khipu
+documents. `payload` is then `None` (or whatever JSON Khipu did send), so read it
+defensively rather than indexing into it.
+
+`KhipuResponseError` means Khipu answered with a 2xx the SDK could not use: the
+body was malformed or incomplete, or the status is not one Khipu documents for
+that operation. It keeps what Khipu sent:
+
+```python
+except KhipuResponseError as exc:
+    exc.status_code   # 200
+    exc.body          # bounded raw body text, or None when it was empty
+```
+
+Bodies are truncated (to 500 characters plus a marker) before they reach an
+exception, and request headers are never touched, so the API key cannot leak
+through an exception.
+
+### What a partial response does and does not tell you
+
+- **A `KhipuApiError` is a definite answer.** Khipu received the request and
+  refused it, whatever the body looked like. It is not a transport ambiguity.
+- **A `KhipuResponseError` on a create operation (`create_instant_payment`,
+  `create_subscription`, `create_charge`) is an outcome to reconcile, not a
+  failure.** Khipu answered with a success-range status, so it may have created
+  the payment, subscription or charge even though the SDK could not read the
+  answer. Treat it like an ambiguous timeout: do not retry blindly.
+- **An identifier in `exc.body` is evidence, not proof.** If the bounded body
+  contains a `payment_id`, store it and re-fetch with `get_instant_payment()`
+  before deciding anything. It does not show that the payment was created
+  correctly, was paid or settled, and the SDK does not extract it for you
+  because the body failed validation. A body longer than the bound may not
+  contain it at all.
+- **A 2xx status alone means nothing more.** The SDK never infers success from
+  the status code: only a body that parses into the documented result does.
 
 ## Idempotency (read this before you retry)
 
@@ -296,15 +330,20 @@ touched, so the API key cannot leak through an exception.
 >
 > **A `KhipuTimeoutError` on create-payment is an ambiguous outcome: Khipu may
 > have created a live, payable payment.** Blindly retrying can produce a second
-> live payment for the same order.
+> live payment for the same order. The same holds for a `KhipuResponseError`
+> on create-payment: Khipu answered with a success-range status the SDK could
+> not read (see [Errors](#errors)).
 
 What a consuming application should do:
 
 1. Persist a payment-intent row (your reference, amount, currency, state) and
    **commit it before** calling `create_instant_payment`.
 2. Enforce uniqueness on your own reference locally — Khipu will not.
-3. On an ambiguous failure, mark the intent *unknown*, not *failed*, and
-   reconcile. Do not auto-retry.
+3. On an ambiguous failure (`KhipuTimeoutError`, `KhipuConnectionError` with
+   `request_may_have_been_delivered`, or `KhipuResponseError`), mark the intent
+   *unknown*, not *failed*, and reconcile. Keep `exc.status_code` and `exc.body`
+   of a `KhipuResponseError` with the intent: a `payment_id` in the body is the
+   only lookup key Khipu offers. Do not auto-retry.
 4. If you must create again after an ambiguous attempt, use a **new**
    `transaction_id` so both attempts stay distinguishable.
 5. Before recognising money, re-fetch with `get_instant_payment()` and verify
@@ -591,20 +630,24 @@ any other `2xx`, `202 Accepted` above all, raises `KhipuResponseError` rather
 than being read as a created charge.
 
 A refused charge comes back as `422` with Khipu's own reason, raised as
-`KhipuApiError`:
+`KhipuApiError`. A `422` is a definite refusal even when its body is empty, is
+not JSON or lacks `error_code`; `payload` is then `None` or incomplete, so read
+it defensively:
 
 ```python
 try:
     charge = client.create_charge(...)
 except KhipuApiError as exc:
     if exc.status_code == 422:
-        code = exc.payload["error_code"]  # e.g. MAX_AMOUNT_PER_CHARGE_EXCEEDED
+        payload = exc.payload if isinstance(exc.payload, dict) else {}
+        code = payload.get("error_code")  # e.g. MAX_AMOUNT_PER_CHARGE_EXCEEDED, or None
 ```
 
 Khipu documents `MAX_AMOUNT_PER_CHARGE_EXCEEDED`, `MAX_MONTHLY_AMOUNT_EXCEEDED`,
 `SUBSCRIPTION_NOT_CHARGEABLE`, `CURRENCY_MISMATCH`, `INVALID_AMOUNT`,
 `IDEMPOTENCY_KEY_REUSED`, `INVALID_PAYLOAD` and `MERCHANT_ID_NOT_RESOLVED`.
-`exc.message` carries Khipu's `error_message` text.
+`exc.message` carries Khipu's `error_message` text when there is one, and
+`exc.body` the bounded raw body in every case.
 
 ## Implemented operations
 
