@@ -7,6 +7,16 @@ https://semver.org/
 
 ## [Unreleased]
 
+Target release: 0.3.5
+
+A bug-fix release (#44). Its runtime change is #42: the SDK keeps the HTTP
+status and body of a response the generated clients cannot parse, and
+classifies a non-2xx status as `KhipuApiError` before any parsing. It also
+ships the repository maintenance of #37 and #39. No public API, generated
+client, OpenAPI spec or runtime dependency changes. `project.version` is
+0.3.5; until 0.3.5 is published, the README install commands keep naming
+0.3.4.
+
 ### Added
 
 - **Dependabot proposes GitHub Actions updates (#39).**

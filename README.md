@@ -861,9 +861,14 @@ maintainer action described below.
 0.3.3, the first public release, was published to TestPyPI and then to PyPI
 on 2026-10-17 from tag `v0.3.3`.
 
-0.3.4, a documentation and package-metadata release dated 2026-10-18, puts
-this corrected README on PyPI from tag `v0.3.4`. It changes no runtime
-behaviour, and the install commands above name it.
+0.3.4, a documentation and package-metadata release, was published to PyPI
+on 2026-10-18 from tag `v0.3.4`. It changes no runtime behaviour, and the
+install commands above name it.
+
+0.3.5, a bug-fix release that keeps the HTTP status and body of responses the
+generated clients cannot parse, is at step 1: `project.version` is 0.3.5, but
+there is no `v0.3.5` tag and nothing has been uploaded for it, so the install
+commands above still name 0.3.4.
 
 Both workflows publish with PyPI
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC), through
