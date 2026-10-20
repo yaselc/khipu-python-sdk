@@ -35,6 +35,39 @@ https://semver.org/
   uses, so GitHub fetches it afresh. The PyPI project page shows this README
   only from the next release.
 
+### Fixed
+
+- **HTTP status and body survive a generated parsing failure (#42).** The
+  generated clients parse the body before returning the response, so when that
+  parsing failed the facade lost the status and the body (audit #41, F1 and
+  F2). The facade now runs the generated request and parsing steps itself
+  (`_get_kwargs`, a single request, `_build_response`), still sending exactly
+  one request, and classifies the status before any parsing:
+  - Every non-2xx status is a `KhipuApiError` with its real `status_code`, a
+    bounded `body` and the JSON `payload` when there is one. A PAC
+    `create_charge` refusal (`422`) whose `ChargeError` body is empty, not JSON
+    or incomplete was previously reported as `KhipuResponseError` with no
+    status; it is now the definite rejection it is. The same applies to any
+    non-2xx status the generated clients cannot name, such as `599`.
+  - A 2xx response whose body cannot be parsed is a `KhipuResponseError` that
+    keeps `status_code` and a bounded `body`. For `create_instant_payment`
+    this preserves the `payment_id` Khipu returned, when it falls within the
+    500-character bound, as evidence for reconciliation; the SDK does not treat
+    it as a successful or settled payment.
+  - A request payload that cannot be serialised, for instance a `Decimal` or a
+    `set` passed through `**extra_fields`, is now a `KhipuValidationError` with
+    no request sent. It was previously reported as `KhipuResponseError`,
+    although nothing had reached Khipu.
+
+  Retries (none), transport error classification and
+  `request_may_have_been_delivered`, the PAC charge success statuses (`201`,
+  and `200` for compatibility) and the rejection of other 2xx statuses are
+  unchanged. A unit test pins the shape of the generated `sync_detailed` the
+  facade relies on, so a generator change cannot silently bypass it. The
+  README documents what a `KhipuResponseError` on a create operation means for
+  reconciliation and reads a `422` payload defensively. No public API,
+  dependency or generated code changes.
+
 ## [0.3.4] - 2026-10-18
 
 A documentation and package-metadata maintenance release (#33, #35). Its

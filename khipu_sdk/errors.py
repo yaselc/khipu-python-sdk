@@ -103,10 +103,13 @@ class KhipuConnectionError(KhipuTransportError):
 class KhipuApiError(KhipuError):
     """Khipu returned an HTTP response with a non-success status.
 
-    This is a definite outcome: Khipu was reached and answered.
+    This is a definite outcome: Khipu was reached and answered. Every non-2xx
+    status is reported this way, whether or not its body matches the error
+    schema Khipu documents for it.
 
-    ``payload`` holds the parsed JSON error body when Khipu sent one, and
-    ``body`` holds a bounded textual copy of the raw body. Neither ever
+    ``payload`` holds the parsed JSON error body when Khipu sent one, and is
+    ``None`` when the body was empty or not JSON. ``body`` holds a bounded
+    textual copy of the raw body, or ``None`` when it was empty. Neither ever
     contains request headers or credentials.
     """
 
@@ -130,9 +133,16 @@ class KhipuApiError(KhipuError):
 class KhipuResponseError(KhipuError):
     """Khipu returned a success status but the body could not be used.
 
-    Covers malformed JSON and responses missing fields the API contract
-    declares as required. This is deliberately NOT a :class:`KhipuApiError`:
-    Khipu did not report an error, the SDK could not interpret the answer.
+    Covers malformed JSON, responses missing fields the API contract declares
+    as required, and 2xx statuses Khipu does not document for the endpoint.
+    This is deliberately NOT a :class:`KhipuApiError`: Khipu did not report an
+    error, the SDK could not interpret the answer.
+
+    ``status_code`` is the HTTP status Khipu sent and ``body`` a bounded copy of
+    the raw body (``None`` when it was empty). On a create operation this is an
+    outcome to reconcile, not a failure: Khipu may have created the payment,
+    subscription or charge, and ``body`` may contain the identifier it returned.
+    That identifier is evidence for reconciliation, never proof of success.
     """
 
     def __init__(

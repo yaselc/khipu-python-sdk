@@ -21,7 +21,7 @@ import json
 import logging
 from enum import Enum
 from types import ModuleType
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -187,13 +187,39 @@ class KhipuClient:
                 f"{type(exc).__name__}: {exc}"
             ) from exc
 
-    def _invoke(self, endpoint: Callable[..., Any], **kwargs: Any) -> Any:
-        """Call a generated endpoint, normalising transport/parse failures.
+    def _invoke(self, endpoint: ModuleType, *, client: Any, **kwargs: Any) -> Any:
+        """Send exactly one request through a generated endpoint and parse it.
 
-        No retry happens here or anywhere else in the SDK.
+        A generated ``sync_detailed`` is three steps: ``_get_kwargs`` builds the
+        request, one ``request()`` on the client's httpx client sends it, and
+        ``_build_response`` parses the body *before* returning. A parse failure in
+        that last step therefore discards the ``httpx.Response`` with its status
+        and body, which turned a 422 rejection with an incomplete ``ChargeError``
+        into a "malformed success" and lost the ``payment_id`` of a create whose
+        success body failed strict parsing (#42).
+
+        The facade runs the same three steps itself so the response is still in
+        hand when parsing fails. ``tests/unit/test_generated_endpoint_contract.py``
+        pins the generated ``sync_detailed`` to that shape, so a generator change
+        that adds a step fails CI instead of being silently bypassed.
+
+        Every non-2xx status is classified here, before any generated parsing,
+        as :class:`~khipu_sdk.errors.KhipuApiError`. No retry happens here or
+        anywhere else in the SDK.
         """
+        httpx_client = client.get_httpx_client()
+        # ``httpx.Client.request`` is ``build_request`` followed by ``send``; the
+        # split only separates local encoding failures from transport ones.
         try:
-            return endpoint(**kwargs)
+            request = httpx_client.build_request(**endpoint._get_kwargs(**kwargs))
+        except Exception as exc:  # noqa: BLE001 - normalised into the SDK taxonomy
+            # Encoding happens before anything is sent, so nothing reached Khipu.
+            raise KhipuValidationError(
+                f"Could not serialise the request payload: {type(exc).__name__}: {exc}"
+            ) from exc
+
+        try:
+            response = httpx_client.send(request)
         except httpx.TimeoutException as exc:
             raise KhipuTimeoutError(
                 f"Request to Khipu timed out ({type(exc).__name__}: {exc})",
@@ -204,10 +230,20 @@ class KhipuClient:
                 f"Could not reach Khipu ({type(exc).__name__}: {exc})",
                 request_may_have_been_delivered=not isinstance(exc, _NOT_DELIVERED),
             ) from exc
+
+        status = int(response.status_code)
+        text = self._decode_body(response)
+        if not 200 <= status < 300:
+            raise self._api_error(status, text)
+
+        try:
+            return endpoint._build_response(client=client, response=response)
         except _PARSE_FAILURES as exc:
             raise KhipuResponseError(
-                f"Khipu returned a body the SDK could not parse "
-                f"({type(exc).__name__}: {exc})"
+                f"Khipu returned a success status with a body the SDK could not "
+                f"parse ({type(exc).__name__}: {exc})",
+                status_code=status,
+                body=truncate(text) if text else None,
             ) from exc
 
     @staticmethod
@@ -273,12 +309,12 @@ class KhipuClient:
         rather than being given the meaning of a documented success. A financial
         result is not inferred from a status code Khipu never documented for the
         endpoint. A body that cannot be parsed still raises, whatever its status.
+
+        Only a 2xx response reaches this point: :meth:`_invoke` has already
+        raised :class:`~khipu_sdk.errors.KhipuApiError` for every other status.
         """
         status = int(result.status_code)
         text = self._decode_body(result)
-
-        if not 200 <= status < 300:
-            raise self._api_error(status, text)
 
         parsed = getattr(result, "parsed", None)
         if (
@@ -355,7 +391,7 @@ class KhipuClient:
         ).PaymentPostPayment
 
         result = self._invoke(
-            endpoint.sync_detailed, client=client, body=self._build_model(model_cls, payload)
+            endpoint, client=client, body=self._build_model(model_cls, payload)
         )
         parsed = self._unwrap(result)
 
@@ -380,7 +416,7 @@ class KhipuClient:
             "generated.instant_payments.api.default.get_payment_by_id"
         )
 
-        result = self._invoke(endpoint.sync_detailed, id=payment_id, client=client)
+        result = self._invoke(endpoint, client=client, id=payment_id)
         parsed = self._unwrap(result)
 
         return InstantPaymentStatus(
@@ -453,7 +489,7 @@ class KhipuClient:
         ).SubscriptionCreationRequest
 
         result = self._invoke(
-            endpoint.sync_detailed, client=client, body=self._build_model(model_cls, payload)
+            endpoint, client=client, body=self._build_model(model_cls, payload)
         )
         parsed = self._unwrap(result)
 
@@ -483,7 +519,7 @@ class KhipuClient:
             "generated.automatic_payments.api.default.fetch_subscription_status_1"
         )
 
-        result = self._invoke(endpoint.sync_detailed, id=subscription_id, client=client)
+        result = self._invoke(endpoint, client=client, id=subscription_id)
         parsed = self._unwrap(result)
 
         return AutomaticSubscriptionStatus(
@@ -572,7 +608,7 @@ class KhipuClient:
         ).ChargeResult
 
         result = self._invoke(
-            endpoint.sync_detailed, client=client, body=self._build_model(model_cls, payload)
+            endpoint, client=client, body=self._build_model(model_cls, payload)
         )
         parsed = self._unwrap(
             result,
