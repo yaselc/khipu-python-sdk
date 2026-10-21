@@ -8,34 +8,40 @@ Publication is an explicit maintainer action (Issue #18):
 - merging or pushing to master publishes, tags and releases nothing.
 
 These tests pin that contract, plus the metadata a PyPI release depends on:
-the CHANGELOG documents the declared version, README install pins name a
-version that is actually published, and the README/package metadata keep the
-independence disclaimer.
+the CHANGELOG documents the declared version, every README install reference
+names a version that is actually published, and the README/package metadata
+keep the independence disclaimer. The maintainer procedure is
+``docs/RELEASING.md`` (Issue #46).
 
 Publication cannot be observed offline, so the release state is pinned here:
 
 - ``LATEST_PUBLISHED_RELEASE`` is the newest version on PyPI and its date. It
   is the newest dated CHANGELOG section and the version every README install
-  command names.
+  reference names.
 - ``RELEASE_CANDIDATE`` is the declared ``project.version`` while it is not yet
-  tagged or uploaded (0.3.4 in Issue #33, 0.3.5 in Issue #44), or ``None``
-  when the declared version is the latest published release. A candidate has
-  no dated CHANGELOG section, is named as ``Target release:`` under
-  ``## [Unreleased]``, and the README never offers to install it.
+  tagged or uploaded, or ``None`` when the declared version is the latest
+  published release. A candidate has no dated CHANGELOG section, is named as
+  ``Target release:`` under ``## [Unreleased]``, and the README never offers
+  to install it.
 
-The release cut (README "Releases", step 2) moves the declared version from
-one to the other: it dates the CHANGELOG section, points the README install
-commands at the new version, sets ``LATEST_PUBLISHED_RELEASE`` to it and
-``RELEASE_CANDIDATE`` to ``None``. 0.3.3, the first public release, was
-published on 2026-10-17 (Issue #31); before that it was a candidate too (#22).
+The release cut (``docs/RELEASING.md``, step 2) moves the declared version
+from one to the other: it dates the CHANGELOG section, points the README
+install references at the new version, sets ``LATEST_PUBLISHED_RELEASE`` to it
+and ``RELEASE_CANDIDATE`` to ``None``.
 
 The release cut is merged *before* the upload, because the README it freezes
 becomes the PyPI project description. From that merge until the upload,
 ``LATEST_PUBLISHED_RELEASE`` is the intended publication (version and date),
 not evidence that the index already has it; these offline tests cannot tell
-the difference. 0.3.4 was in that state after its release cut (Issue #35) and
-was published on 2026-10-18 as planned. If publication slips, the CHANGELOG
-date and this constant are corrected together before tagging or uploading.
+the difference. If publication slips, the CHANGELOG date and this constant are
+corrected together before tagging or uploading.
+
+Stale versions are found by pattern, not by line: every install reference the
+README contains (pip/requirement specifiers, Git and GitHub tag refs, wheel
+and sdist file names) must name the latest published release, the four
+documented install forms must all be present, and no other released version
+may appear anywhere in the README or the release procedure. The version
+history belongs to the CHANGELOG alone.
 
 The workflow checks read the YAML as text on purpose: the files are small, the
 checked lines are distinctive, and the dev environment has no YAML parser.
@@ -47,6 +53,7 @@ repositories under ``tmp_path``.
 
 from __future__ import annotations
 
+import datetime
 import os
 import re
 import shutil
@@ -60,6 +67,8 @@ REPO = Path(__file__).resolve().parents[2]
 PYPROJECT = REPO / "pyproject.toml"
 CHANGELOG = REPO / "CHANGELOG.md"
 README = REPO / "README.md"
+RELEASING = REPO / "docs" / "RELEASING.md"
+CONTRIBUTING = REPO / "CONTRIBUTING.md"
 WORKFLOWS = REPO / ".github" / "workflows"
 TESTPYPI_WORKFLOW = WORKFLOWS / "publish-testpypi.yml"
 PYPI_WORKFLOW = WORKFLOWS / "publish-pypi.yml"
@@ -71,13 +80,13 @@ FINAL_REPOSITORY = "https://github.com/yaselc/khipu-python-sdk"
 #: The first release published to PyPI, and the date it was published (#31).
 FIRST_PUBLIC_RELEASE = ("0.3.3", "2026-10-17")
 
-#: The newest release published to PyPI, and the date it was published (#35).
-#: After a release cut and before its upload, the intended publication.
-LATEST_PUBLISHED_RELEASE = ("0.3.4", "2026-10-18")
+#: The newest release published to PyPI, and the date it was published.
+#: After a release cut and before its upload, the intended publication (#46).
+LATEST_PUBLISHED_RELEASE = ("0.3.5", "2026-10-21")
 
-#: ``project.version`` while it is prepared but not tagged or uploaded (#33,
-#: #44); ``None`` when the declared version is ``LATEST_PUBLISHED_RELEASE``.
-RELEASE_CANDIDATE: str | None = "0.3.5"
+#: ``project.version`` while it is prepared but not tagged or uploaded;
+#: ``None`` when the declared version is ``LATEST_PUBLISHED_RELEASE``.
+RELEASE_CANDIDATE: str | None = None
 
 #: Wording that only described 0.3.3 before it was published (Issue #22).
 PRE_RELEASE_WORDING = (
@@ -93,8 +102,49 @@ PRE_RELEASE_WORDING = (
     "has not been published to PyPI yet",
 )
 
-PYPI_PIN = re.compile(r"khipu-python-sdk==(\d+\.\d+\.\d+)")
-GIT_PIN = re.compile(r"khipu-python-sdk\.git@v(\d+\.\d+\.\d+)")
+#: A version as an install reference can spell it, pre-releases included. A
+#: trailing sentence period is stripped from matches.
+_VERSION = r"v?(\d+(?:\.\d+)*(?:[-.+]?[A-Za-z0-9]+)*)"
+
+#: Every way a README can tell a reader to install a particular version,
+#: whatever its line or code block: a requirement specifier (``==``, ``>=``,
+#: ``~=``, ...), with or without extras or quotes; a Git ref of this
+#: repository (``.git@v1.2.3``); a GitHub tag, release or archive URL; a wheel
+#: or sdist file name.
+INSTALL_REFERENCES = (
+    re.compile(
+        r"khipu[-_.]python[-_.]sdk\s*(?:\[[^\]\n]*\])?\s*"
+        r"(?:===|==|~=|>=|<=|!=|>|<)\s*" + _VERSION,
+        re.I,
+    ),
+    re.compile(r"khipu-python-sdk(?:\.git)?@" + _VERSION, re.I),
+    re.compile(
+        r"github\.com/yaselc/khipu-python-sdk/"
+        r"(?:releases/tag|tree|blob|archive(?:/refs/tags)?)/" + _VERSION,
+        re.I,
+    ),
+    re.compile(r"khipu_python_sdk-" + _VERSION + r"(?=-py|\.tar|\.zip)", re.I),
+)
+
+#: A dotted ``X.Y.Z`` version anywhere in prose, ``vX.Y.Z`` tags included,
+#: but not inside a longer dotted number or an identifier.
+VERSION_TOKEN = re.compile(r"(?<![\w.])v?(\d+\.\d+\.\d+)(?!\w|\.\d)")
+
+#: The four install forms the README documents, each pinned to ``{version}``.
+INSTALL_FORMS = (
+    "```bash\npip install khipu-python-sdk=={version}\n```",
+    "```text\nkhipu-python-sdk=={version}\n```",
+    '  "khipu-python-sdk=={version}",\n',
+    "khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v{version}\n",
+)
+
+#: The links the README Releases section must give, absolute so they work in
+#: the PyPI long description (#31, #46).
+RELEASE_LINKS = (
+    "https://github.com/yaselc/khipu-python-sdk/blob/master/CHANGELOG.md",
+    "https://github.com/yaselc/khipu-python-sdk/releases",
+    "https://github.com/yaselc/khipu-python-sdk/blob/master/docs/RELEASING.md",
+)
 
 #: ``## [1.2.3] - 2026-09-22`` -- a released section, not ``## [Unreleased]``.
 RELEASE_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})$", re.M)
@@ -152,6 +202,29 @@ def readme_installation() -> str:
     )
     assert match is not None, "README has no '## Installation' section"
     return match.group(1)
+
+
+def release_dates() -> list[str]:
+    return [match.group(2) for match in RELEASE_HEADING.finditer(
+        CHANGELOG.read_text(encoding="utf-8")
+    )]
+
+
+def install_references(text: str) -> list[str]:
+    """The version of every install reference in ``text``, in no fixed order."""
+    return [
+        version.rstrip(".")
+        for pattern in INSTALL_REFERENCES
+        for version in pattern.findall(text)
+    ]
+
+
+def known_versions() -> set[str]:
+    """Every version this project has released or declared."""
+    known = set(released_versions()) | {declared_version()}
+    if RELEASE_CANDIDATE is not None:
+        known.add(RELEASE_CANDIDATE)
+    return known
 
 
 def triggers(workflow: Path) -> str:
@@ -246,29 +319,103 @@ def test_the_changelog_no_longer_calls_a_released_version_unpublished():
     assert "there is no `v0.3.3` tag" not in changelog
 
 
-def test_readme_install_pins_point_at_the_latest_published_release():
-    """Every pin names a version a reader can install today.
+def test_changelog_releases_are_unique_and_in_reverse_chronological_order():
+    """Newest first; a version is dated once; no date goes back in time."""
+    versions, dates = released_versions(), release_dates()
 
-    Never an older tag such as ``v0.3.2``, never an unpublished candidate, and
-    every pin lives in the Installation section.
+    assert len(versions) == len(set(versions)), versions
+    assert [version_key(v) for v in versions] == sorted(
+        (version_key(v) for v in versions), reverse=True
+    ), versions
+    assert dates == sorted(dates, reverse=True), list(zip(versions, dates))
+    for date in dates:
+        assert datetime.date.fromisoformat(date).isoformat() == date, date
+
+
+def test_the_release_state_dates_are_consistent():
+    """The latest release is the first public one or comes after it."""
+    first_version, first_date = FIRST_PUBLIC_RELEASE
+    latest_version, latest_date = LATEST_PUBLISHED_RELEASE
+
+    assert version_key(latest_version) >= version_key(first_version)
+    assert latest_date >= first_date
+    assert datetime.date.fromisoformat(latest_date).isoformat() == latest_date
+
+
+def test_every_changelog_heading_is_unreleased_or_a_dated_release():
+    """A malformed heading would hide a release from the checks above."""
+    changelog = CHANGELOG.read_text(encoding="utf-8")
+    for heading in re.findall(r"^## .*$", changelog, re.M):
+        assert heading == "## [Unreleased]" or RELEASE_HEADING.fullmatch(heading), (
+            f"CHANGELOG heading {heading!r} is neither [Unreleased] nor "
+            "'## [X.Y.Z] - YYYY-MM-DD'"
+        )
+
+
+def test_readme_install_references_all_name_the_latest_published_release():
+    """No install reference, in any form or section, is stale or unpublished.
+
+    The patterns cover requirement specifiers, Git refs, GitHub tag URLs and
+    distribution file names, so a new example or a reworded one is checked
+    without listing its line here.
     """
     readme = README.read_text("utf-8")
-    pypi_pins = set(PYPI_PIN.findall(readme))
-    git_pins = set(GIT_PIN.findall(readme))
     latest = LATEST_PUBLISHED_RELEASE[0]
+    found = install_references(readme)
 
-    assert pypi_pins, "README no longer shows a pinned PyPI install example"
-    assert git_pins, "README no longer shows a pinned Git install example"
-    assert pypi_pins | git_pins == {latest}, (
-        f"README pins {sorted(pypi_pins | git_pins)}; the latest published "
-        f"release is {latest}"
+    assert found, "README shows no pinned install reference"
+    stale = sorted({version for version in found if version != latest})
+    assert not stale, (
+        f"README install references name {stale}; every one must name the "
+        f"latest published release {latest}"
     )
 
+
+def test_readme_shows_every_install_form_pinned_to_the_latest_release():
+    """None of the four documented install forms is dropped or left behind."""
     installation = readme_installation()
-    for pin in (PYPI_PIN, GIT_PIN):
-        assert len(pin.findall(installation)) == len(pin.findall(readme)), (
-            f"README has {pin.pattern!r} install pins outside '## Installation'"
+    latest = LATEST_PUBLISHED_RELEASE[0]
+
+    for form in INSTALL_FORMS:
+        expected = form.format(version=latest)
+        assert installation.count(expected) == 1, (
+            f"README Installation must show {expected!r} exactly once"
         )
+    assert len(install_references(installation)) == len(INSTALL_FORMS), (
+        install_references(installation)
+    )
+    assert install_references(README.read_text("utf-8")) == install_references(
+        installation
+    ), "README has install references outside '## Installation'"
+
+
+def test_readme_never_installs_the_package_unpinned():
+    """``pip install khipu-python-sdk`` always names an exact version."""
+    readme = README.read_text("utf-8")
+    for line in re.findall(r"^.*pip install .*khipu[-_.]python[-_.]sdk.*$", readme, re.M | re.I):
+        assert f"khipu-python-sdk=={LATEST_PUBLISHED_RELEASE[0]}" in line, line
+
+
+def test_readme_names_no_release_other_than_the_latest():
+    """Release history lives in the CHANGELOG, not in README prose (#46)."""
+    readme = README.read_text("utf-8")
+    latest = LATEST_PUBLISHED_RELEASE[0]
+    mentioned = set(VERSION_TOKEN.findall(readme)) & known_versions()
+
+    assert mentioned <= {latest}, (
+        f"README mentions {sorted(mentioned - {latest})}; it may only name the "
+        f"latest published release {latest}"
+    )
+
+
+@pytest.mark.parametrize("document", [RELEASING, CONTRIBUTING], ids=lambda p: p.name)
+def test_the_release_procedure_names_no_particular_release(document):
+    """The procedure is written for ``X.Y.Z`` and never needs a per-release edit."""
+    text = document.read_text("utf-8")
+    mentioned = set(VERSION_TOKEN.findall(text)) & known_versions()
+
+    assert not mentioned, f"{document.name} names releases {sorted(mentioned)}"
+    assert not install_references(text), install_references(text)
 
 
 def test_readme_installs_the_latest_published_release_from_pypi_today():
@@ -283,21 +430,96 @@ def test_readme_installs_the_latest_published_release_from_pypi_today():
     assert installation.lstrip().startswith("### From PyPI\n"), installation[:80]
 
 
-def test_readme_states_the_release_candidate_without_offering_it():
-    """A candidate is described as one, and only while there is one."""
-    readme = flat(README.read_text("utf-8"))
-
+def test_readme_never_offers_the_release_candidate():
+    """A candidate is installable from nowhere until it is published."""
     if RELEASE_CANDIDATE is None:
-        latest = LATEST_PUBLISHED_RELEASE[0]
-        assert "is at step 1" not in readme
-        assert f"there is no `v{latest}` tag" not in readme
-        assert "the install commands above still name" not in readme
+        assert declared_version() == LATEST_PUBLISHED_RELEASE[0]
         return
-    assert f"khipu-python-sdk=={RELEASE_CANDIDATE}" not in readme
-    assert f"khipu-python-sdk.git@v{RELEASE_CANDIDATE}" not in readme
-    assert f"is at step 1: `project.version` is {RELEASE_CANDIDATE}" in readme
-    assert f"there is no `v{RELEASE_CANDIDATE}` tag" in readme
-    assert f"the install commands above still name {LATEST_PUBLISHED_RELEASE[0]}" in readme
+    readme = README.read_text("utf-8")
+    assert RELEASE_CANDIDATE not in install_references(readme)
+    assert RELEASE_CANDIDATE not in VERSION_TOKEN.findall(readme)
+
+
+def test_readme_releases_section_links_the_history_and_the_procedure():
+    """Concise, PyPI-safe pointers instead of an accumulating history (#46)."""
+    match = re.search(
+        r"^## Releases\n(.*?)(?=^## )", README.read_text("utf-8"), re.M | re.S
+    )
+    assert match is not None, "README has no '## Releases' section"
+    releases = match.group(1)
+
+    for link in RELEASE_LINKS:
+        assert f"]({link})" in releases, f"README Releases does not link {link}"
+    assert "Merging to `master` does not release anything" in flat(releases)
+    assert "Trusted Publishing" in releases
+
+
+def test_the_release_procedure_covers_every_step_and_gate():
+    """``docs/RELEASING.md`` keeps the whole procedure and its safety invariants.
+
+    The checks name files, workflows, environments, markers and constants
+    rather than prose, so the procedure can be reworded freely.
+    """
+    procedure = RELEASING.read_text("utf-8")
+    flat_procedure = flat(procedure)
+
+    for anchor in (
+        # Release state and the release cut.
+        "`project.version`",
+        "`Target release: X.Y.Z`",
+        "## [Unreleased]",
+        "## [X.Y.Z] - YYYY-MM-DD",
+        "`RELEASE_CANDIDATE",
+        "`LATEST_PUBLISHED_RELEASE",
+        "tests/unit/test_release_metadata.py",
+        # Publication: TestPyPI rehearsal, then a GitHub Release for vX.Y.Z.
+        "`.github/workflows/publish-testpypi.yml`",
+        "`workflow_dispatch`",
+        "`.github/workflows/publish-pypi.yml`",
+        "`vX.Y.Z`",
+        "GitHub Release",
+        "`testpypi`",
+        "`pypi`",
+        # Gates that a build for an index must pass.
+        "`.github/workflows/build-dist.yml`",
+        "`master`",
+        "`tools/check_dist.py",
+        "`twine check --strict`",
+        "`make smoke-dist`",
+        "`PUBLICATION_GATES.toml`",
+        "`LICENSE`",
+        "OIDC",
+        "`id-token: write`",
+        # Verification and remediation.
+        "https://pypi.org/pypi/khipu-python-sdk/X.Y.Z/json",
+    ):
+        assert anchor in procedure, f"docs/RELEASING.md no longer covers {anchor!r}"
+
+    assert "Merging to `master` releases nothing" in flat_procedure
+    assert "No PyPI API token is stored in this repository" in flat_procedure
+    for heading in (
+        "## 1. Release candidate",
+        "## 2. Release cut",
+        "## 3. TestPyPI rehearsal (optional)",
+        "## 4. PyPI",
+        "## 5. Verification",
+        "## When the date slips or a step fails",
+    ):
+        assert f"\n{heading}\n" in procedure, heading
+
+
+def test_the_release_procedure_is_linked_from_contributing():
+    assert "docs/RELEASING.md" in CONTRIBUTING.read_text("utf-8")
+
+
+def test_readme_links_the_procedure_but_does_not_duplicate_it():
+    """The README keeps no copy of the step-by-step procedure."""
+    readme = README.read_text("utf-8")
+
+    assert "Target release:" not in readme
+    assert "RELEASE_CANDIDATE" not in readme
+    assert "LATEST_PUBLISHED_RELEASE" not in readme
+    assert "Release cut" not in readme
 
 
 def test_readme_has_no_pre_release_wording():

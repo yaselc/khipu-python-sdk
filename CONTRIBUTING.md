@@ -30,4 +30,4 @@ obviously fake values in fixtures.
   changes.
 
 Merging a pull request does not release it. Releases are cut by the maintainer
-as described under "Releases" in the README.
+as described in [docs/RELEASING.md](docs/RELEASING.md).
