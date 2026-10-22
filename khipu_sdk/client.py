@@ -12,6 +12,10 @@ The SDK performs **no retries**. Khipu publishes no idempotency key and no
 lookup-by-``transaction_id`` endpoint, so an automatic retry of a create-payment
 request could produce a second live payment. Retry policy is the caller's
 decision; the exception taxonomy exists so that decision can be made correctly.
+
+Each generated client lazily builds its own pooled ``httpx.Client`` on first
+use. :meth:`KhipuClient.close` (or a ``with`` block) releases the pools that
+exist; see its docstring for the lifecycle contract.
 """
 
 from __future__ import annotations
@@ -20,7 +24,7 @@ import importlib
 import json
 import logging
 from enum import Enum
-from types import ModuleType
+from types import ModuleType, TracebackType
 from typing import Any, Optional
 
 import httpx
@@ -94,6 +98,11 @@ _ERROR_MESSAGE_KEYS = (
 #: was created -- 202 Accepted most obviously means the opposite.
 _CHARGE_SUCCESS_COMPATIBILITY_STATUSES: frozenset[int] = frozenset({200})
 
+_CLOSED_MESSAGE = (
+    "This KhipuClient has been closed; create a new KhipuClient to make further "
+    "requests. No request was sent."
+)
+
 _MISSING_GENERATED_HINT = (
     "The generated Khipu clients are not importable. This normally means the "
     "installed distribution is incomplete; reinstall the package, or run "
@@ -121,6 +130,18 @@ class KhipuClient:
 
     Wraps the generated Instant Payments (v3) and Automatic Payments (v1/PAC)
     clients. Consuming applications should import only from ``khipu_sdk``.
+
+    The client owns up to two HTTP connection pools, one per API, each created
+    on the first request to that API. Release them with :meth:`close`, or use
+    the client as a synchronous context manager::
+
+        with KhipuClient(config) as client:
+            client.get_instant_payment(payment_id=payment_id)
+
+    A closed client rejects every operation with
+    :class:`~khipu_sdk.errors.KhipuConfigurationError` before sending anything;
+    it is never reopened. The SDK makes no thread-safety promise for
+    :meth:`close` running concurrently with a request.
     """
 
     def __init__(self, config: KhipuConfig):
@@ -129,6 +150,7 @@ class KhipuClient:
         # any httpx client is built.
         validate_config(config)
         self._config = config
+        self._closed = False
         self._instant = self._build_instant_client()
         self._automatic = self._build_automatic_client()
 
@@ -139,6 +161,102 @@ class KhipuClient:
     @property
     def config(self) -> KhipuConfig:
         return self._config
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def close(self) -> None:
+        """Release the HTTP connection pools this client has created.
+
+        Only pools that already exist are closed: an API this client never
+        called has no pool, and none is created just to be closed. Calling
+        ``close()`` again is a no-op.
+
+        The client is marked closed before any pool is touched, so from then
+        on every SDK operation raises
+        :class:`~khipu_sdk.errors.KhipuConfigurationError` without sending a
+        request, even if closing a pool fails. Pools are never reopened.
+
+        Both pools get a close attempt, Instant Payments first. If closing one
+        raises an ``Exception``, the other is still closed, every failure is
+        logged (exception type only) on the ``khipu_sdk.client`` logger, and
+        the first failure is re-raised unchanged once both attempts have been
+        made. A later ``close()`` is still a no-op and does not retry; httpx
+        marks a pool closed before it releases the pool's connections.
+
+        ``close()`` does not cancel or interrupt a request that is already in
+        progress on another thread.
+        """
+        if self._closed:
+            return
+        self._closed = True
+
+        first_failure: Optional[Exception] = None
+        for name, generated in (
+            ("Instant Payments", self._instant),
+            ("Automatic Payments", self._automatic),
+        ):
+            httpx_client = self._created_httpx_client(generated)
+            if httpx_client is None:
+                continue
+            try:
+                httpx_client.close()
+            except Exception as exc:  # noqa: BLE001 - re-raised after the other pool
+                # The type only: the message is not ours to vouch for in logs.
+                logger.warning(
+                    "Closing the %s HTTP connection pool failed (%s)",
+                    name,
+                    type(exc).__name__,
+                )
+                if first_failure is None:
+                    first_failure = exc
+        if first_failure is not None:
+            raise first_failure
+
+    def __enter__(self) -> KhipuClient:
+        self._ensure_open()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        if exc_value is None:
+            self.close()
+            return
+        # An exception from the ``with`` body -- for instance an ambiguous
+        # KhipuTimeoutError -- carries information the caller must not lose,
+        # so a cleanup failure is logged by close() and never replaces it.
+        try:
+            self.close()
+        except Exception:  # noqa: BLE001 - the body's exception propagates instead
+            pass
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise KhipuConfigurationError(_CLOSED_MESSAGE)
+
+    @staticmethod
+    def _created_httpx_client(generated: Any) -> Optional[httpx.Client]:
+        """Return the httpx client a generated wrapper has built, or ``None``.
+
+        The generated ``Client`` only offers ``get_httpx_client()``, which
+        *builds* a pool when none exists. Its private ``_client`` slot holds
+        the pool once built and ``None`` before; reading it is the only way to
+        close what exists without creating anything.
+        ``tests/unit/test_generated_client_lifecycle_contract.py`` pins that
+        storage, so a generator change fails CI instead of leaking pools.
+
+        The facade accepts no injected httpx client, so every pool found here
+        was built by the generated wrapper for this facade and is owned by it.
+        """
+        if generated is None:
+            return None
+        httpx_client: Optional[httpx.Client] = generated._client
+        return httpx_client
 
     # ------------------------------------------------------------------
     # Generated client wiring
@@ -173,6 +291,7 @@ class KhipuClient:
         return self._build_client("generated.automatic_payments.client")
 
     def _require(self, client: Any, *, name: str) -> Any:
+        self._ensure_open()
         if client is None:
             raise KhipuConfigurationError(f"{name}: {_MISSING_GENERATED_HINT}")
         return client
@@ -211,6 +330,10 @@ class KhipuClient:
         as :class:`~khipu_sdk.errors.KhipuApiError`. No retry happens here or
         anywhere else in the SDK.
         """
+        # Every public operation already checked this in ``_require``; checking
+        # again here guarantees ``get_httpx_client()`` never rebuilds a pool
+        # after close().
+        self._ensure_open()
         httpx_client = client.get_httpx_client()
         # ``httpx.Client.request`` is ``build_request`` followed by ``send``; the
         # split only separates local encoding failures from transport ones.

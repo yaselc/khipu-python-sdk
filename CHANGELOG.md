@@ -7,6 +7,22 @@ https://semver.org/
 
 ## [Unreleased]
 
+### Added
+
+- **`KhipuClient.close()` and synchronous context management (#54).**
+  `with KhipuClient(config) as client:` or an explicit `client.close()` now
+  releases the HTTP connection pools the client created. Only pools that
+  exist are closed: a client that never called an API, or called only one of
+  Instant Payments and Automatic Payments, builds no pool just to close it.
+  `close()` is idempotent. After it, every operation raises
+  `KhipuConfigurationError` before any validation or request, and the pools
+  are never reopened. If closing one pool fails, the other is still closed,
+  each failure is logged by exception type, and the first is re-raised; an
+  exception leaving a `with` block is never replaced by a cleanup failure.
+  Behaviour before `close()`, including timeouts, error mapping and the
+  no-retry policy, is unchanged. No generated client, OpenAPI spec or
+  dependency changes.
+
 ### Changed
 
 - **Invalid configuration is rejected when `KhipuConfig` is built (#50).**
