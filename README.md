@@ -213,6 +213,65 @@ request can be made:
 setting that was rejected but never its value, so an API key, or a URL or
 variable that holds one by mistake, does not reach your logs.
 
+### Client lifecycle
+
+A `KhipuClient` holds up to two HTTP connection pools, one for Instant
+Payments and one for Automatic Payments. Each pool is created on the first
+request to its API and kept for reuse. Release them when you are done with the
+client, either with a `with` block:
+
+```python
+from khipu_sdk import KhipuClient, KhipuConfig
+
+with KhipuClient(KhipuConfig.from_env()) as client:
+    status = client.get_instant_payment(payment_id=payment_id)
+```
+
+or by calling `close()` yourself:
+
+```python
+client = KhipuClient(KhipuConfig.from_env())
+try:
+    status = client.get_instant_payment(payment_id=payment_id)
+finally:
+    client.close()
+```
+
+Which one fits depends on how long the client lives:
+
+- **Scripts, management commands and one-off jobs:** use a `with` block, so the
+  pools are closed when the block ends, including when it ends with an
+  exception.
+- **Long-lived processes** such as a Django or Flask web worker or a Celery
+  worker: create one client per process and reuse it, so connections are
+  pooled across requests, and call `close()` from your shutdown hook (for
+  example `atexit`, or Celery's `worker_process_shutdown` signal). Create the
+  client in the process that uses it, after any fork; do not share one client,
+  or its pools, across processes. The SDK makes no thread-safety promise
+  beyond what httpx itself provides, and none for `close()` running while
+  another thread is making a request.
+
+The lifecycle contract:
+
+- `close()` closes only the pools that exist. A client that never called an
+  API, or called only one of them, does not build a pool just to close it.
+- `close()` is idempotent: calling it again, or leaving a `with` block after
+  an explicit `close()`, does nothing.
+- A closed client stays closed. Every operation on it raises
+  `KhipuConfigurationError` before any validation or request, and entering a
+  closed client in a `with` block raises the same error. Create a new
+  `KhipuClient` instead; pools are never reopened.
+- `close()` does not cancel or interrupt a request that is already in
+  progress.
+- If closing one pool raises, the other is still closed, each failure is
+  logged on the `khipu_sdk.client` logger (exception type only), and the first
+  failure is re-raised. The client counts as closed even then. When a `with`
+  block exits because of an exception, that exception always propagates: a
+  cleanup failure is logged and never replaces it, so for example a
+  `KhipuTimeoutError` with its ambiguity flag is not lost.
+
+The same rules apply whether you call `close()` or use `with`.
+
 ## Money
 
 `Decimal` is the canonical representation. The SDK performs no financial

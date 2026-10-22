@@ -52,8 +52,10 @@ class KhipuConfigurationError(KhipuError, ValueError):
     """The SDK is not usable as configured.
 
     Raised when the generated clients are missing from the installed
-    distribution, or when a :class:`~khipu_sdk.config.KhipuConfig` value is
-    invalid. No HTTP request was attempted. The message never contains the
+    distribution, when a :class:`~khipu_sdk.config.KhipuConfig` value is
+    invalid, or when an operation is called on a
+    :class:`~khipu_sdk.client.KhipuClient` after
+    :meth:`~khipu_sdk.client.KhipuClient.close`. No HTTP request was attempted. The message never contains the
     rejected value, so an API key cannot leak through it.
 
     It is also a ``ValueError`` because ``KhipuConfig.from_env()`` raised a bare
