@@ -7,6 +7,29 @@ https://semver.org/
 
 ## [Unreleased]
 
+### Changed
+
+- **Invalid configuration is rejected when `KhipuConfig` is built (#50).**
+  Direct construction now validates every field, not only `from_env()`, and
+  `KhipuClient` checks the config again before creating its HTTP clients, so
+  no request can be made with an invalid configuration. `api_key` must be a
+  non-empty string of visible ASCII characters (whitespace is rejected, not
+  stripped). `base_url` must be an absolute `http://` or `https://` URL with a
+  valid hostname and no credentials, fragment, whitespace or non-ASCII
+  characters; `http://` remains supported for local mocks. `timeout` must be
+  a finite, positive `int` or `float`, or an `httpx.Timeout` whose four
+  phases are all finite and positive; `None`, booleans, strings, zero,
+  negative values, NaN, infinity and unbounded phases are rejected. In
+  `from_env()`, a set but empty `{prefix}TIMEOUT` or `{prefix}BASE_URL` is now
+  an error instead of falling back to the default. Every such failure raises
+  `KhipuConfigurationError`, whose message never contains the rejected value
+  and which chains no other exception.
+- **`KhipuConfigurationError` is now also a `ValueError` (#50).**
+  `from_env()` used to raise a bare `ValueError` for a missing key or a
+  malformed timeout; it now raises `KhipuConfigurationError`, and existing
+  `except ValueError` handlers still catch it. Valid configurations behave as
+  before. No generated client, OpenAPI spec or dependency changes.
+
 ### Fixed
 
 - **Fractional amounts are never changed on the way to Khipu (#48).** The

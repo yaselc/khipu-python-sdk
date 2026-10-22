@@ -30,6 +30,15 @@ class TestHierarchy:
     def test_every_error_derives_from_khipu_error(self, exc):
         assert isinstance(exc, KhipuError)
 
+    def test_configuration_error_is_also_a_value_error(self):
+        """``from_env()`` raised a bare ``ValueError`` before #50; handlers must keep working."""
+        assert issubclass(KhipuConfigurationError, KhipuError)
+        assert issubclass(KhipuConfigurationError, ValueError)
+
+    def test_only_the_configuration_error_is_a_value_error(self):
+        others = [type(exc) for exc in ALL_ERRORS if not isinstance(exc, KhipuConfigurationError)]
+        assert not any(issubclass(cls, ValueError) for cls in others)
+
     def test_timeout_and_connection_are_transport_errors(self):
         assert issubclass(KhipuTimeoutError, KhipuTransportError)
         assert issubclass(KhipuConnectionError, KhipuTransportError)
