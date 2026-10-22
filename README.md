@@ -240,6 +240,23 @@ A rejected amount raises `KhipuValidationError` and **no HTTP request is made**.
 The SDK never rounds it to fit the currency: round it yourself, deliberately,
 if that is what your application means.
 
+### Exactness on the wire
+
+Khipu's API schemas carry amounts as JSON numbers, and the generated clients
+type them as `float`. Whole amounts are sent as integers, exact at any size.
+An amount with a fractional part is sent as a float, which Python writes as the
+shortest decimal that reads back as the same float, so ordinary amounts such as
+`Decimal("0.1")`, `Decimal("19.99")` or `Decimal("1.2345")` reach Khipu
+exactly as written.
+
+A float holds only about 15 to 17 significant digits. A fractional amount that
+would reach the wire as a different decimal value, such as
+`Decimal("1234567890123.4567")`, is rejected with `KhipuValidationError` before
+any request, never rounded. This also applies to PAC charges sent without a
+`currency`, where no minor-unit check is possible. It is a limit of the wire
+format, not a statement about which amounts Khipu accepts: Khipu applies its
+own limits to every amount.
+
 ## Errors
 
 All exceptions derive from `KhipuError` and are picklable, so they survive Celery
