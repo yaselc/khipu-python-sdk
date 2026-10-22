@@ -45,6 +45,25 @@ https://semver.org/
   with two are sent exactly as before, and whole amounts stay integers of any
   size. No public API, generated client, OpenAPI spec or dependency changes.
 
+### Documentation
+
+- **`**extra_fields` contract and Instant Payments `custom` (#52).** The README
+  now documents `**extra_fields` on `create_instant_payment`,
+  `create_subscription` and `create_charge` as a compatibility escape hatch for
+  schema fields without an explicit parameter, not a general extension
+  mechanism. Keys are forwarded verbatim: a field the schema declares is sent
+  under its name, while an undeclared or misspelled key (including a misspelled
+  explicit parameter) raises no error and is sent as its own top-level JSON key,
+  so the intended field is not set and Khipu's handling of the extra key is
+  undocumented. `None` under an extra key is sent as `null`. The Correlation
+  section adds an Instant Payments example that passes `custom` for
+  merchant-side correlation and distinguishes it from `transaction_id`;
+  neither is an idempotency key. New offline HTTP tests pin the serialised JSON
+  for recognized, unknown and misspelled extra fields on all three operations,
+  and that named parameters such as `amount` and `currency` cannot be
+  overridden through `**extra_fields`. Runtime behavior, public signatures,
+  generated clients and OpenAPI specs are unchanged.
+
 ## [0.3.5] - 2026-10-21
 
 A bug-fix release (#44, #46). Its runtime change is #42: the SDK keeps the

@@ -405,16 +405,31 @@ What a consuming application should do:
 Two opaque merchant fields are sent on creation and echoed back by
 `get_instant_payment()`:
 
-- `transaction_id` — your own reference (invoice, order or contribution id).
-- `custom` — free-form extra payload.
+- `transaction_id` — your own reference for the payment, such as an order or
+  invoice number. It is a required parameter of `create_instant_payment`.
+- `custom` — free-form data you attach to the payment, such as a cart summary
+  or an internal correlation token. Khipu's schema types it as a string.
+
+Use `transaction_id` for the reference you look the payment up by in your own
+records, and `custom` for any extra context you want back with it. Khipu
+documents no deduplication or other merchant-visible processing for either;
+the SDK treats both as opaque strings.
+
+`create_instant_payment` has no explicit `custom` parameter. Pass it as a
+keyword argument and it goes through
+[`**extra_fields`](#additional-request-fields-extra_fields), which the
+generated `PaymentPostPayment` model declares and sends as `"custom"`:
 
 ```python
+from decimal import Decimal
+
 created = client.create_instant_payment(
     amount=Decimal("10000"),
     currency="CLP",
     subject="Order 123",
     transaction_id="ORDER-123",
-    custom="ORDER-123-extra",
+    # Merchant-side correlation data; sent as the JSON field "custom".
+    custom="order=ORDER-123;cart=42;channel=web",
     return_url="https://your-app.example.com/payments/return/",
     cancel_url="https://your-app.example.com/payments/cancel/",
     notify_url="https://your-app.example.com/payments/webhook/khipu/",
@@ -422,9 +437,12 @@ created = client.create_instant_payment(
 
 fetched = client.get_instant_payment(payment_id=created.payment_id)
 assert fetched.transaction_id == "ORDER-123"
+assert fetched.custom == "order=ORDER-123;cart=42;channel=web"
 ```
 
-Again: correlation, **not** idempotency.
+Again: correlation, **not** idempotency. Neither `transaction_id` nor `custom`
+prevents a second payment from being created; see
+[Idempotency](#idempotency-read-this-before-you-retry).
 
 ## Usage
 
@@ -698,6 +716,59 @@ Khipu documents `MAX_AMOUNT_PER_CHARGE_EXCEEDED`, `MAX_MONTHLY_AMOUNT_EXCEEDED`,
 `IDEMPOTENCY_KEY_REUSED`, `INVALID_PAYLOAD` and `MERCHANT_ID_NOT_RESOLVED`.
 `exc.message` carries Khipu's `error_message` text when there is one, and
 `exc.body` the bounded raw body in every case.
+
+### Additional request fields (extra_fields)
+
+`create_instant_payment`, `create_subscription` and `create_charge` accept
+extra keyword arguments. They are a **compatibility escape hatch** for request
+fields that Khipu's published schema declares but the facade does not expose as
+explicit parameters, for example `custom`, `bank_id`, `payer_email` or
+`expires_date` on Instant Payments, and `service_reference`, `description` or
+`image_url` on `create_subscription`. Every field of `create_charge`'s
+`ChargeRequest` is already an explicit parameter, so there `**extra_fields`
+only ever carries fields the schema does not declare.
+
+`**extra_fields` is **not** a general request extension mechanism, and it does
+not guarantee that Khipu accepts or acts on a field. What happens to a key:
+
+- **The SDK wrapper forwards it verbatim.** It does not validate, convert,
+  rename or drop extra fields. Unlike the explicit optional parameters, a
+  value of `None` is sent as JSON `null` rather than omitted, so leave the key out
+  instead of passing `None`. Values must already be JSON-ready: a
+  `Decimal` or `datetime` under an undeclared key raises
+  `KhipuValidationError` before anything is sent.
+- **A field the schema declares** is parsed by the generated request model
+  and sent under its declared name. The model does not check types or lengths
+  (`custom=123` is sent as the number `123`); `date-time` fields such as
+  `expires_date` take an ISO-8601 string, and a `datetime` object raises
+  `KhipuValidationError` before anything is sent.
+- **A field the schema does not declare, including a misspelling**, is kept by
+  the generated model and sent as a top-level JSON key **without any error or
+  warning**. `costum="..."` sends `"costum"` and does not set `custom`.
+  Khipu's documentation does not say how it treats undeclared fields: it may
+  ignore them, reject the request, or something else. Either way the field you
+  meant to set was not set, and nothing in the SDK tells you.
+
+So a typo in an extra field name is **not** prevented. To reduce that risk:
+
+- Prefer explicit parameters where they exist, and spell them carefully:
+  because of the catch-all, a misspelled explicit parameter such as
+  `return_ulr=` is not a `TypeError` either. It becomes an extra field and is
+  sent as `"return_ulr"`, while `return_url` stays unset.
+- Use the field names exactly as they appear in the request schema of the
+  [Khipu API documentation](#khipu-api-documentation) or in the committed specs
+  under `openapi/`.
+- Check the JSON body your code actually sends, for example with an offline
+  test against a mock transport such as `pytest-httpx`, before relying on a
+  field in production.
+
+Extra fields cannot replace or bypass a named parameter: passing `amount`,
+`currency` or any other named parameter twice is a `TypeError` raised by
+Python before any validation or request. The minor-unit checks therefore
+always apply to the amounts the SDK sends, and the currency the SDK sends is
+always the validated `currency` argument (`create_charge` sends none). A
+look-alike key such as `Amount` or `currency_code` is an undeclared field: it
+is forwarded alongside the validated values and does not change them.
 
 ## Implemented operations
 
