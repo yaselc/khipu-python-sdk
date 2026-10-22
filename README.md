@@ -152,6 +152,11 @@ Environment variables:
 - `KHIPU_BASE_URL` (optional, default `https://payment-api.khipu.com`)
 - `KHIPU_TIMEOUT` (optional, default `10.0` seconds)
 
+`KhipuConfig.from_env(prefix="SHOP_")` reads `SHOP_API_KEY`, `SHOP_BASE_URL`
+and `SHOP_TIMEOUT` instead. An unset `BASE_URL` or `TIMEOUT` uses the default.
+A variable that is set but empty is an error, not a silent fallback to the
+default.
+
 ```python
 from khipu_sdk import KhipuClient, KhipuConfig
 
@@ -179,6 +184,34 @@ client = KhipuClient(
 `KhipuConfig.api_key` is excluded from `repr()`, so the credential cannot leak
 through logging, Sentry local-variable capture or a debug page. The timeout is
 never `None`: an unbounded default would let a stalled request pin a worker.
+
+### Validation
+
+`KhipuConfig` checks its values when it is constructed, whether directly or
+through `from_env()`, and `KhipuClient` checks them again before building its
+HTTP clients. An invalid value raises `KhipuConfigurationError` before any
+request can be made:
+
+- `api_key` must be a non-empty string of visible ASCII characters. Whitespace,
+  including a trailing newline from a secrets file, is rejected, not stripped.
+- `base_url` must be an absolute `https://` or `http://` URL with a valid
+  hostname (a DNS name, IPv4 address or bracketed IPv6 address) and an
+  optional port and path. It must not contain credentials (`user:pass@`), a
+  fragment (`#`), whitespace or non-ASCII characters; write an
+  internationalised hostname in its `xn--` form. `http://` stays supported
+  for local mock servers and tests; use `https://` for Khipu itself. The URL
+  is never rewritten.
+- `timeout` must be an `int` or `float` number of seconds that is finite and
+  greater than zero, or an `httpx.Timeout` whose connect, read, write and pool
+  phases all are. `None`, booleans, strings, zero, negative values, NaN and
+  infinity are rejected, and so is an `httpx.Timeout` with any phase left
+  unbounded (`None`). An accepted `httpx.Timeout` is kept as the same object.
+  The SDK adds no upper limit of its own.
+
+`KhipuConfigurationError` is also a `ValueError`, so code that caught the bare
+`ValueError` `from_env()` used to raise keeps working. Its message names the
+setting that was rejected but never its value, so an API key, or a URL or
+variable that holds one by mistake, does not reach your logs.
 
 ## Money
 
@@ -264,7 +297,7 @@ result backends.
 
 | Exception | Meaning | Reached Khipu? |
 |---|---|---|
-| `KhipuConfigurationError` | Generated clients missing / SDK unusable as configured | No |
+| `KhipuConfigurationError` | Invalid `KhipuConfig` value, generated clients missing / SDK unusable as configured. Also a `ValueError` | No |
 | `KhipuValidationError` | Invalid input rejected locally (currency, fractional CLP, unserialisable payload) | **No** |
 | `KhipuTimeoutError` | Request timed out | **Unknown** — see below |
 | `KhipuConnectionError` | DNS / TCP / TLS / broken stream | Usually no; check the flag |

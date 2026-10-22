@@ -25,7 +25,7 @@ from typing import Any, Optional
 
 import httpx
 
-from .config import KhipuConfig
+from .config import KhipuConfig, validate_config
 from .errors import (
     KhipuApiError,
     KhipuConfigurationError,
@@ -124,6 +124,10 @@ class KhipuClient:
     """
 
     def __init__(self, config: KhipuConfig):
+        # KhipuConfig validates itself on construction. Checking again here also
+        # rejects an httpx.Timeout that was made unbounded afterwards, before
+        # any httpx client is built.
+        validate_config(config)
         self._config = config
         self._instant = self._build_instant_client()
         self._automatic = self._build_automatic_client()

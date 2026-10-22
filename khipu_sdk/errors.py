@@ -48,12 +48,17 @@ class KhipuError(Exception):
     """Base exception for all SDK errors."""
 
 
-class KhipuConfigurationError(KhipuError):
+class KhipuConfigurationError(KhipuError, ValueError):
     """The SDK is not usable as configured.
 
     Raised when the generated clients are missing from the installed
-    distribution, or the configuration is structurally invalid. No HTTP request
-    was attempted.
+    distribution, or when a :class:`~khipu_sdk.config.KhipuConfig` value is
+    invalid. No HTTP request was attempted. The message never contains the
+    rejected value, so an API key cannot leak through it.
+
+    It is also a ``ValueError`` because ``KhipuConfig.from_env()`` raised a bare
+    ``ValueError`` before configuration was validated (#50), and existing
+    ``except ValueError`` handlers must keep working.
     """
 
 
