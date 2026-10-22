@@ -368,6 +368,12 @@ class KhipuClient:
         idempotency keys**: Khipu documents no deduplication on them, and the
         SDK performs no duplicate protection and no automatic retry. A timeout
         here is an ambiguous outcome -- see :class:`~khipu_sdk.errors.KhipuTimeoutError`.
+
+        ``custom`` and the other schema fields without an explicit parameter
+        are passed as keyword arguments through ``**extra_fields``. They are
+        forwarded verbatim: an undeclared or misspelled key raises nothing and
+        is sent as its own JSON key, and ``None`` is sent as ``null``. See the
+        README section "Additional request fields".
         """
         client = self._require(self._instant, name="Instant Payments")
         currency = validate_currency(currency)
@@ -463,6 +469,10 @@ class KhipuClient:
         documents as not exceeding ``max_amount``. That relationship is Khipu's
         to enforce -- the SDK sends both and lets the provider answer -- but
         both are validated against the currency's minor-unit scale first.
+
+        Optional schema fields such as ``service_reference`` are passed through
+        ``**extra_fields``, which forwards keys verbatim with the same caveats
+        as :meth:`create_instant_payment`.
         """
         client = self._require(self._automatic, name="Automatic Payments")
         currency = validate_currency(currency)
@@ -578,6 +588,11 @@ class KhipuClient:
         SDK chooses no default: a value is sent exactly as given and ``None``
         leaves the field out. An application that needs signed JSON
         notifications requests ``"3.0"`` explicitly.
+
+        Every ``ChargeRequest`` field is an explicit parameter, so
+        ``**extra_fields`` only carries keys the schema does not declare. They
+        are forwarded verbatim, with the same caveats as
+        :meth:`create_instant_payment`.
         """
         client = self._require(self._automatic, name="Automatic Payments")
         if currency is not None:
