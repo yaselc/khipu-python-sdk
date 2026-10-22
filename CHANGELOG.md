@@ -7,6 +7,21 @@ https://semver.org/
 
 ## [Unreleased]
 
+### Fixed
+
+- **Fractional amounts are never changed on the way to Khipu (#48).** The
+  generated clients send a non-integral amount as a JSON float, which keeps
+  only about 15 to 17 significant digits, so an amount such as
+  `Decimal("1234567890123.4567")` CLF used to be sent as
+  `1234567890123.4568`. `amount_to_wire` now checks that the float is written
+  back as the same decimal value and raises `KhipuValidationError` before any
+  request when it is not, including on float overflow or underflow. Amounts
+  are still never rounded. This applies to `create_instant_payment`,
+  `create_subscription` and `create_charge` (also without `currency`).
+  Ordinary amounts such as `Decimal("0.1")`, CLF with four decimals and USD
+  with two are sent exactly as before, and whole amounts stay integers of any
+  size. No public API, generated client, OpenAPI spec or dependency changes.
+
 ## [0.3.5] - 2026-10-21
 
 A bug-fix release (#44, #46). Its runtime change is #42: the SDK keeps the

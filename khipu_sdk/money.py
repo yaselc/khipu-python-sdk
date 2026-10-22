@@ -11,7 +11,9 @@ Design rules:
   handing the value to the OpenAPI-generated model, whose ``amount`` field is
   typed ``float`` by the generator. That boundary is
   :func:`amount_to_wire`, and it is the only place in the SDK where a
-  non-``Decimal`` numeric type is produced.
+  non-``Decimal`` numeric type is produced. A non-integral amount whose
+  ``float`` would serialise to a different decimal value is rejected there
+  rather than sent changed.
 * Values decoded from JSON arrive as ``float``/``int``; they are converted back
   with ``Decimal(str(value))`` (see :func:`amount_from_wire`) so no additional
   binary floating-point error is introduced.
@@ -19,6 +21,7 @@ Design rules:
 
 from __future__ import annotations
 
+import math
 from decimal import Decimal, DecimalException
 from typing import Mapping, Optional, Union
 
@@ -140,11 +143,28 @@ def amount_to_wire(amount: Decimal) -> Union[int, float]:
 
     This is the single boundary where the SDK leaves ``Decimal``. Integral
     amounts become ``int`` so that e.g. CLP serialises as ``10000`` rather than
-    ``10000.0``.
+    ``10000.0``; Python integers are exact at any size.
+
+    Non-integral amounts become ``float``, because the generated models type
+    ``amount`` as ``float``. The JSON encoder writes a float as ``repr(float)``,
+    the shortest decimal string that reads back as the same float, so the
+    amount on the wire is ``Decimal(repr(float(amount)))``. That is checked to
+    equal ``amount`` in value: ``Decimal("0.1")`` is sent as ``0.1`` and
+    accepted, even though 0.1 has no exact binary form, while an amount with
+    more significant digits than a float carries (roughly 15 to 17), or one
+    that overflows or underflows the float range, raises
+    :class:`KhipuValidationError`. The amount is never rounded to fit.
     """
     if amount == amount.to_integral_value():
         return int(amount)
-    return float(amount)
+    wire = float(amount)
+    if not math.isfinite(wire) or Decimal(repr(wire)) != amount:
+        raise KhipuValidationError(
+            f"Invalid amount {amount}: it cannot be sent to Khipu without changing "
+            "its value, because the API carries non-integral amounts as JSON "
+            "floats. Amounts are not rounded automatically."
+        )
+    return wire
 
 
 def amount_from_wire(value: Union[int, float, str, None]) -> Optional[Decimal]:
