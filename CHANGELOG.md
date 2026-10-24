@@ -25,6 +25,23 @@ https://semver.org/
 
 ### Changed
 
+- **The generated clients moved into the private `khipu_sdk._generated`
+  package (#56).** The OpenAPI-generated Instant Payments and Automatic
+  Payments clients used to be installed as a generic top-level `generated`
+  package. A consumer project with its own `generated` package then shadowed
+  them, so every call raised `KhipuConfigurationError`; a consumer's
+  namespace-style `generated/` directory became unimportable once the SDK was
+  installed; and pip and uv silently overwrote files with any other
+  distribution shipping a top-level `generated`. The distribution now installs
+  `khipu_sdk` as its only top-level package, and the top-level `generated`
+  package is no longer distributed. The supported public API, everything
+  imported from `khipu_sdk`, is unchanged, and so are request and response
+  behaviour, errors, timeouts and the no-retry policy. Importing `generated.*`
+  directly was never supported and breaks from the next release on; no
+  compatibility alias is provided, because one would keep the collision.
+  `khipu_sdk._generated` is private as well. The generated files are moved
+  unchanged, from the same specs and the same pinned generator. No public API,
+  OpenAPI spec or dependency changes.
 - **Invalid configuration is rejected when `KhipuConfig` is built (#50).**
   Direct construction now validates every field, not only `from_env()`, and
   `KhipuClient` checks the config again before creating its HTTP clients, so

@@ -19,8 +19,8 @@ obviously fake values in fixtures.
 
 ## Ground rules
 
-- Hand-written code lives in `khipu_sdk/`. Never edit `generated/`; it must
-  equal a fresh `make generate-all` (CI enforces this).
+- Hand-written code lives in `khipu_sdk/`. Never edit `khipu_sdk/_generated/`;
+  it must equal a fresh `make generate-all` (CI enforces this).
 - `openapi/` holds Khipu's published specs byte for byte, pinned in
   `OPENAPI_SPECS.lock.json`. Adopting a newer spec is its own reviewed change
   (see "OpenAPI specifications and regeneration" in the README).
