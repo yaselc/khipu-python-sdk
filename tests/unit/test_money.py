@@ -27,7 +27,7 @@ class TestCurrencyValidation:
 
     def test_minor_units_cover_every_currency_the_generated_enum_accepts(self):
         """Guards against spec drift: regeneration must not add an unmapped currency."""
-        from generated.instant_payments.models.payment_post_payment_currency import (
+        from khipu_sdk._generated.instant_payments.models.payment_post_payment_currency import (
             PaymentPostPaymentCurrency,
         )
 

@@ -17,8 +17,8 @@ import httpx
 import pytest
 
 GENERATED_CLIENT_MODULES = [
-    "generated.instant_payments.client",
-    "generated.automatic_payments.client",
+    "khipu_sdk._generated.instant_payments.client",
+    "khipu_sdk._generated.automatic_payments.client",
 ]
 
 

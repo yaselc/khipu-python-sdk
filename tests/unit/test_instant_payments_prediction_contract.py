@@ -7,10 +7,10 @@ The Instant Payments document adopted in #20 (sha256 ``fed2ea62...``) changed
 (``getPredictAll``), which returns the same prediction per bank.
 
 Prediction is not part of the supported ``KhipuClient`` facade; it is reachable
-only through ``generated.instant_payments``. These tests pin that the generated
-parser follows the published wire vocabulary exactly -- no lowercase aliases --
-so a regeneration that drifts from the committed spec fails here, and that the
-facade still does not expose prediction.
+only through the private ``khipu_sdk._generated.instant_payments``. These tests
+pin that the generated parser follows the published wire vocabulary exactly --
+no lowercase aliases -- so a regeneration that drifts from the committed spec
+fails here, and that the facade still does not expose prediction.
 """
 
 from __future__ import annotations
@@ -18,13 +18,13 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from generated.instant_payments.api.default import get_predict_all
-from generated.instant_payments.client import AuthenticatedClient
-from generated.instant_payments.models.predict_get_predict import PredictGetPredict
-from generated.instant_payments.models.predict_get_predict_all import (
+from khipu_sdk._generated.instant_payments.api.default import get_predict_all
+from khipu_sdk._generated.instant_payments.client import AuthenticatedClient
+from khipu_sdk._generated.instant_payments.models.predict_get_predict import PredictGetPredict
+from khipu_sdk._generated.instant_payments.models.predict_get_predict_all import (
     PredictGetPredictAll,
 )
-from generated.instant_payments.models.predict_get_predict_result import (
+from khipu_sdk._generated.instant_payments.models.predict_get_predict_result import (
     PredictGetPredictResult,
 )
 from khipu_sdk import KhipuClient

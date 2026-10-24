@@ -56,15 +56,18 @@ jobs:
         run: |
           make generate-all
 
-      # generated/ is committed and shipped in the wheel, so it must be exactly
-      # what the pipeline produces -- including the Instant Payments
+      # khipu_sdk/_generated/ is committed and shipped in the wheel, so it must
+      # be exactly what the pipeline produces -- including the Instant Payments
       # compatibility overlay (tools/spec_compat.py, #15). A hand edit, or a
-      # regeneration that bypassed the overlay, fails here.
-      - name: Committed generated/ matches a fresh regeneration
+      # regeneration that bypassed the overlay, fails here. The path must be
+      # the directory `make generate-all` writes (GENERATED_DIR in the
+      # Makefile): on any other path this check passes vacuously (#56).
+      # tests/unit/test_generated_namespace.py pins it.
+      - name: Committed khipu_sdk/_generated/ matches a fresh regeneration
         run: |
-          if [ -n "$(git status --porcelain -- generated/)" ]; then
-            git status --short -- generated/
-            git diff -- generated/
+          if [ -n "$(git status --porcelain -- khipu_sdk/_generated/)" ]; then
+            git status --short -- khipu_sdk/_generated/
+            git diff -- khipu_sdk/_generated/
             exit 1
           fi
 
@@ -74,7 +77,8 @@ jobs:
 
   package:
     # Regression guard for packaging: the `check` job regenerates the clients and
-    # tests the source tree, so it cannot detect a wheel that omits generated/.
+    # tests the source tree, so it cannot detect a wheel that omits the generated
+    # clients under khipu_sdk/_generated/.
     # This job builds the distributions from the committed tree and exercises
     # the facade from a clean install, with no network access to Khipu.
     runs-on: ubuntu-24.04
@@ -96,8 +100,9 @@ jobs:
           python -m pip install -U pip build twine
 
       # Builds the sdist and the wheel from it, runs tools/check_dist.py (the
-      # wheel mirrors khipu_sdk/ and generated/ file for file, ships py.typed,
-      # and neither artifact ships anything outside its allowlist), then
+      # wheel mirrors khipu_sdk/ file for file, ships py.typed, installs
+      # khipu_sdk as its only top-level package, and neither artifact ships
+      # anything outside its allowlist), then
       # installs each artifact into a clean venv and smoke tests it. The
       # publish workflows run the same target before uploading anything.
       - name: Build, inspect and smoke-test wheel + sdist

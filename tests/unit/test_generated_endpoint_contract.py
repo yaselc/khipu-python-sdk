@@ -23,17 +23,17 @@ import khipu_sdk.client
 
 #: Every generated endpoint module the facade calls.
 FACADE_ENDPOINTS = [
-    "generated.instant_payments.api.default.post_payment",
-    "generated.instant_payments.api.default.get_payment_by_id",
-    "generated.automatic_payments.api.default.create_subscription_1",
-    "generated.automatic_payments.api.default.fetch_subscription_status_1",
-    "generated.automatic_payments.api.default.create_charge_1",
+    "khipu_sdk._generated.instant_payments.api.default.post_payment",
+    "khipu_sdk._generated.instant_payments.api.default.get_payment_by_id",
+    "khipu_sdk._generated.automatic_payments.api.default.create_subscription_1",
+    "khipu_sdk._generated.automatic_payments.api.default.fetch_subscription_status_1",
+    "khipu_sdk._generated.automatic_payments.api.default.create_charge_1",
 ]
 
 
 def test_the_list_covers_every_endpoint_the_facade_imports():
     source = Path(khipu_sdk.client.__file__).read_text(encoding="utf-8")
-    imported = set(re.findall(r'"(generated\.[a-z_]+\.api\.default\.[a-z0-9_]+)"', source))
+    imported = set(re.findall(r'"(khipu_sdk\._generated\.[a-z_]+\.api\.default\.[a-z0-9_]+)"', source))
     assert imported == set(FACADE_ENDPOINTS)
 
 

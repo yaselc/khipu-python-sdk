@@ -2,17 +2,17 @@
 
 ## Project overview
 - This repository implements a high-level Python SDK for Khipu APIs.
-- Generated OpenAPI client code lives under `generated/` (both automatic payments and instant payments clients).
+- Generated OpenAPI client code lives under the private package `khipu_sdk/_generated/` (both automatic payments and instant payments clients). It is not a supported import path for consumers; never add a top-level `generated` package.
 - Hand-written SDK surface lives under `khipu_sdk/` alongside configuration, error types, and helpers.
 
 ## Rules for generated code
-- Never modify files under `generated/` directly. They are produced by `openapi-python-client` and must stay untouched.
+- Never modify files under `khipu_sdk/_generated/` directly. They are produced by `openapi-python-client` and must stay untouched.
 - When changes are needed for generated code, update the OpenAPI specs in `openapi/` and regenerate using `make generate-all`.
 - The specs in `openapi/` are Khipu's published documents, committed verbatim and pinned by sha256. When the live API returns a value its document omits, add a narrow, strict entry to the generation-time overlay in `tools/spec_compat.py` instead of editing the spec (see README "Compatibility overlay").
 - Keep commit history clean: generated changes should be isolated from manual SDK edits whenever possible.
 
 ## Hand-written code guidelines
-- Place all business logic, abstractions, and documentation in `khipu_sdk/` or other non-generated folders.
+- Place all business logic, abstractions, and documentation in `khipu_sdk/` (outside `khipu_sdk/_generated/`) or other non-generated folders.
 - Prefer adding types, wrappers, or utilities instead of altering generated request/response models.
 - Maintain compatibility with Python 3.10+ and follow existing code style (black-compatible formatting, Ruff lint rules if enabled).
 

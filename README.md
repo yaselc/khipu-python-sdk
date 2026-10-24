@@ -27,9 +27,9 @@ not offer — see [Idempotency](#idempotency-read-this-before-you-retry).
 ## Key principles
 
 - All hand-written source code is **in English**.
-- **Never edit generated code** under `generated/`.
+- **Never edit generated code** under `khipu_sdk/_generated/`.
 - Regeneration is **repeatable and automated** (`make generate-all`).
-- Your application imports only `khipu_sdk`, never `generated.*`.
+- Your application imports only `khipu_sdk`, never `khipu_sdk._generated.*`.
 - Money is **`Decimal`** end to end; `float` appears only at the final wire boundary.
 - **No retries anywhere.** Retry policy belongs to the caller.
 
@@ -41,12 +41,11 @@ khipu-python-sdk/
     khipu-instant-payments.yaml
     khipu-automatic-payments.yaml
 
-  generated/
-    __init__.py            # makes generated/ a real package so it ships in the wheel
-    instant_payments/      # OpenAPI generated client (do not edit)
-    automatic_payments/    # OpenAPI generated client (do not edit)
-
   khipu_sdk/
+    _generated/            # private; not a supported import path
+      __init__.py          # recreated by `make generate-all`
+      instant_payments/    # OpenAPI generated client (do not edit)
+      automatic_payments/  # OpenAPI generated client (do not edit)
     client.py              # KhipuClient (high-level wrapper)
     config.py              # KhipuConfig
     errors.py              # SDK exception taxonomy
@@ -140,9 +139,10 @@ make install-dev
 `make smoke-dist` builds the wheel and sdist, checks their contents with
 `tools/check_dist.py`, installs each into a throwaway virtualenv and creates and
 retrieves a payment against a local mock server. It fails if a distribution is
-missing the generated clients, ships anything outside its allowlist, or has a
-long description (this README, as shown on PyPI) with a link or image that is
-relative to the repository. CI runs it on every push.
+missing the generated clients, ships anything outside its allowlist, installs
+any top-level package other than `khipu_sdk`, or has a long description (this
+README, as shown on PyPI) with a link or image that is relative to the
+repository. CI runs it on every push.
 
 ## Configuration
 
@@ -842,8 +842,8 @@ is forwarded alongside the validated values and does not change them.
 Authentication is a single static API key sent as the `x-api-key` header on
 every request. Khipu API v3 uses no request signing.
 
-The generated clients under `generated/` cover more of Khipu's surface than the
-facade deliberately exposes: unsubscribing a PAC subscription
+The generated clients under `khipu_sdk/_generated/` cover more of Khipu's
+surface than the facade deliberately exposes: unsubscribing a PAC subscription
 (`DELETE /v1/automatic-payment/subscription/{id}`, an irreversible operation),
 cancelling a payment, `POST /v3/payments/{id}/void`,
 `POST /v3/refunds`, `GET /v3/refund-wallet/balance`, `GET /v3/banks`,
@@ -888,8 +888,11 @@ make verify-spec-lock # CI check
 make generate-all     # regenerate both clients
 ```
 
-`make generate-all` also recreates `generated/__init__.py`, which packaging
-depends on, so the file survives regeneration.
+`make generate-all` writes the clients to `khipu_sdk/_generated/` and also
+recreates `khipu_sdk/_generated/__init__.py`, which packaging depends on, so the
+file survives regeneration. The generated clients are a private subpackage of
+`khipu_sdk`, so the distribution installs `khipu_sdk` as its only top-level
+package and cannot collide with an unrelated top-level `generated` package.
 
 CI verifies the lock against the **committed** specs, which is what makes
 generation reproducible. It deliberately does not download specs in the blocking
@@ -910,25 +913,25 @@ make check          # review the generated diff and adjust the facade if needed
 
 The code generator is pinned exactly (`openapi-python-client==0.28.0`) in the
 `dev` extra. It is the build tool that produces the committed contents of
-`generated/`, so a floating version would let a generator release change that
-code with no change in this repository. Bumping it is a deliberate step:
-change the pin, run `make generate-all`, and review the diff.
+`khipu_sdk/_generated/`, so a floating version would let a generator release
+change that code with no change in this repository. Bumping it is a deliberate
+step: change the pin, run `make generate-all`, and review the diff.
 
-Never edit files under `generated/`. If behaviour needs to change, change the
-`khipu_sdk` facade.
+Never edit files under `khipu_sdk/_generated/`. If behaviour needs to change,
+change the `khipu_sdk` facade.
 
 ### Compatibility overlay
 
 Rarely, the live API returns a value Khipu's own document does not declare.
-The committed spec must stay Khipu's document byte for byte, and `generated/`
-must stay reproducible, so neither is edited. Instead, `make generate-instant`
-runs `tools/spec_compat.py`, which writes a derived copy of the Instant Payments
-spec to `build/openapi/` and generates from that.
+The committed spec must stay Khipu's document byte for byte, and
+`khipu_sdk/_generated/` must stay reproducible, so neither is edited. Instead,
+`make generate-instant` runs `tools/spec_compat.py`, which writes a derived copy
+of the Instant Payments spec to `build/openapi/` and generates from that.
 
 The overlay currently has one entry: `direct_debit` is added to
 `payment-get-payment.payment_method` (#15). The derived copy differs from
-Khipu's document by exactly that one enum line, and `generated/` by exactly
-one enum member.
+Khipu's document by exactly that one enum line, and `khipu_sdk/_generated/` by
+exactly one enum member.
 
 Each entry records the exact enum Khipu publishes today and refuses to apply
 to anything else:
@@ -942,7 +945,7 @@ to anything else:
 - the non-blocking `spec-drift` job runs `make check-spec-compat` against the
   freshly published spec, so either case is reported before anyone adopts it.
 
-CI also fails when committed `generated/` differs from a fresh
+CI also fails when committed `khipu_sdk/_generated/` differs from a fresh
 `make generate-all`, so the overlay can be neither bypassed nor hand-applied.
 
 ## Development
@@ -969,9 +972,10 @@ inference, a generator emits different output. Left floating, `make check`
 passes locally and fails in CI purely because the runner resolved a newer
 version.
 
-`ruff` also skips `generated/` (see `[tool.ruff]`), because that code is
-machine-produced and must never be hand-edited, so findings there could only be
-silenced rather than fixed.
+`ruff` and `mypy` also skip `khipu_sdk/_generated/` (see `[tool.ruff]` and
+`[tool.mypy]`), because that code is machine-produced and must never be
+hand-edited, so findings there could only be silenced rather than fixed. Every
+hand-written module is still linted and type-checked.
 
 Bumping any of the three is a deliberate maintenance step: change the pin, run
 `make check` (or `make generate-all` for the generator), and deal with whatever

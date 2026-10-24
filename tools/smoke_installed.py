@@ -11,6 +11,7 @@ touches the repository sources.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import threading
@@ -97,8 +98,16 @@ def main() -> int:
 
     from khipu_sdk import KhipuClient, KhipuConfig
 
-    # Proves generated/ is present in the distribution.
-    import generated.instant_payments.client  # noqa: F401
+    # Proves the generated clients are present in the distribution, under the
+    # private khipu_sdk._generated package rather than a top-level one (#56).
+    import khipu_sdk._generated.automatic_payments.client  # noqa: F401
+    import khipu_sdk._generated.instant_payments.client  # noqa: F401
+
+    # The clean environment holds nothing else, so a top-level `generated`
+    # can only have come from this distribution.
+    if importlib.util.find_spec("generated") is not None:
+        print("FAIL: the distribution installed a top-level `generated` package")
+        return 1
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     port = server.server_address[1]

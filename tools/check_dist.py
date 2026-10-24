@@ -7,8 +7,12 @@ Run against a freshly built ``dist/`` (``make build``). It fails when:
 - ``dist/`` does not hold exactly one wheel and one sdist;
 - either artifact's version differs from ``project.version`` in
   ``pyproject.toml`` (or from ``--tag``, which must be ``v<version>``);
-- the wheel does not ship ``khipu_sdk`` and ``generated`` exactly as they are
-  in the source tree, plus ``khipu_sdk/py.typed``;
+- the wheel does not ship ``khipu_sdk`` (including the generated clients under
+  ``khipu_sdk/_generated``) exactly as it is in the source tree, plus
+  ``khipu_sdk/py.typed``;
+- either artifact installs a top-level import package other than
+  ``khipu_sdk``, as recorded in its ``top_level.txt`` or implied by its files,
+  or still ships the obsolete top-level ``generated`` package (#56);
 - either artifact contains anything outside the explicit allowlist below --
   the specs, tests, tools, CI config, local environment files, caches,
   credentials or certificates are not part of the distribution;
@@ -58,8 +62,17 @@ REDISTRIBUTION_TABLE = re.compile(
 APPROVED_LINE = re.compile(r"^approved[ \t]*=[ \t]*(\S+)[ \t]*(#.*)?$", re.M)
 EVIDENCE_LINE = re.compile(r'^evidence[ \t]*=[ \t]*"([^"]*)"[ \t]*(#.*)?$', re.M)
 
+#: The only top-level import package either artifact may install (#56). The
+#: generated clients live under ``khipu_sdk/_generated``; a generic top-level
+#: name such as the former ``generated`` can be shadowed by, overwrite, or hide
+#: an unrelated package of the same name.
+TOP_LEVEL = "khipu_sdk"
+
+#: The top-level package the generated clients used to ship as, before #56.
+OBSOLETE_TOP_LEVEL = "generated"
+
 #: Packages the wheel must ship, mirrored file for file from the source tree.
-PACKAGES = ("khipu_sdk", "generated")
+PACKAGES = (TOP_LEVEL,)
 
 #: Files at the sdist root (below ``<name>-<version>/``) that may be shipped.
 SDIST_ROOT_FILES = {"LICENSE", "PKG-INFO", "README.md", "pyproject.toml", "setup.cfg"}
@@ -157,7 +170,9 @@ def check_wheel(path: Path, version: str) -> list[str]:
             problems.append(f"wheel ships forbidden file {name}")
         if name.startswith(dist_info):
             continue
-        if PurePosixPath(name).parts[0] not in PACKAGES:
+        if PurePosixPath(name).parts[0] == OBSOLETE_TOP_LEVEL:
+            problems.append(f"wheel ships the obsolete top-level package: {name}")
+        elif PurePosixPath(name).parts[0] not in PACKAGES:
             problems.append(f"wheel ships unexpected file {name}")
         else:
             shipped.add(name)
@@ -171,6 +186,10 @@ def check_wheel(path: Path, version: str) -> list[str]:
         problems.append(f"wheel is missing {missing}")
     if "khipu_sdk/py.typed" not in shipped:
         problems.append("wheel is missing khipu_sdk/py.typed")
+
+    if dist_info + "top_level.txt" in names:
+        top_level = zipfile.ZipFile(path).read(dist_info + "top_level.txt").decode("utf-8")
+        problems += check_top_level("wheel", top_level)
 
     metadata = zipfile.ZipFile(path).read(dist_info + "METADATA").decode("utf-8")
     problems += check_metadata("wheel", metadata, version)
@@ -194,6 +213,8 @@ def check_sdist(path: Path, version: str) -> list[str]:
             top = PurePosixPath(rel).parts[0]
             if FORBIDDEN.search(rel):
                 problems.append(f"sdist ships forbidden file {rel}")
+            elif top == OBSOLETE_TOP_LEVEL:
+                problems.append(f"sdist ships the obsolete top-level package: {rel}")
             elif not (
                 rel in SDIST_ROOT_FILES
                 or top in PACKAGES
@@ -204,12 +225,27 @@ def check_sdist(path: Path, version: str) -> list[str]:
                 extracted = tar.extractfile(member)
                 assert extracted is not None
                 pkg_info = extracted.read().decode("utf-8")
+            if rel == "khipu_python_sdk.egg-info/top_level.txt":
+                extracted = tar.extractfile(member)
+                assert extracted is not None
+                problems += check_top_level("sdist", extracted.read().decode("utf-8"))
 
     if pkg_info is None:
         problems.append("sdist has no PKG-INFO")
     else:
         problems += check_metadata("sdist", pkg_info, version)
     return problems
+
+
+def check_top_level(kind: str, raw: str) -> list[str]:
+    """Problems with a ``top_level.txt``: it must name ``khipu_sdk`` alone."""
+    declared = sorted({line.strip() for line in raw.splitlines() if line.strip()})
+    if declared != [TOP_LEVEL]:
+        return [
+            f"{kind} top_level.txt declares {declared}, expected [{TOP_LEVEL!r}] "
+            "only; a second top-level package can collide with unrelated code"
+        ]
+    return []
 
 
 def check_metadata(kind: str, raw: str, version: str) -> list[str]:
