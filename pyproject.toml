@@ -71,16 +71,26 @@ package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
-# `generated*` MUST stay here: the SDK facade is non-functional without the
-# generated clients. See tools/smoke_installed.py for the regression guard.
-include = ["khipu_sdk*", "generated*"]
+# `khipu_sdk*` also picks up the generated clients under `khipu_sdk/_generated`,
+# which the SDK facade cannot work without (see tools/smoke_installed.py). Do
+# not add another top-level package: the wheel must ship `khipu_sdk` alone
+# (#56), which tools/check_dist.py enforces.
+include = ["khipu_sdk*"]
 
 [tool.setuptools.package-data]
 khipu_sdk = ["py.typed"]
 
 [tool.ruff]
-# `generated/` is machine-produced and must never be hand-edited (see the
-# regeneration workflow in the README), so linting it can only ever produce
-# findings nobody is allowed to act on. Excluding it keeps the build from being
-# gated on code this repository does not own.
-extend-exclude = ["generated"]
+# `khipu_sdk/_generated/` is machine-produced and must never be hand-edited
+# (see the regeneration workflow in the README), so linting it can only ever
+# produce findings nobody is allowed to act on. Excluding it keeps the build
+# from being gated on code this repository does not own.
+extend-exclude = ["khipu_sdk/_generated"]
+
+[tool.mypy]
+# Same reasoning as ruff: `mypy khipu_sdk` type-checks the hand-written modules
+# only, as it did while the generated clients lived outside the package. The
+# facade loads them with importlib, so excluding the directory from discovery
+# does not hide any hand-written code. tests/unit/test_generated_namespace.py
+# pins this to exactly the generated directory.
+exclude = ['^khipu_sdk/_generated/']

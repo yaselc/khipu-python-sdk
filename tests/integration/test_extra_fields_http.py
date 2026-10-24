@@ -167,7 +167,7 @@ class TestSignatures:
         """The README says ``extra_fields`` on ``create_charge`` only carries
         fields ``ChargeRequest`` does not declare. If the spec grows a field,
         this fails so that statement is revisited."""
-        from generated.automatic_payments.models.charge_request import ChargeRequest
+        from khipu_sdk._generated.automatic_payments.models.charge_request import ChargeRequest
 
         declared = {f.name for f in attrs.fields(ChargeRequest)} - {"additional_properties"}
         parameters = set(inspect.signature(KhipuClient.create_charge).parameters)
@@ -414,19 +414,19 @@ class TestGeneratedModelRouting:
         ("module", "name", "base", "declared"),
         [
             (
-                "generated.instant_payments.models.payment_post_payment",
+                "khipu_sdk._generated.instant_payments.models.payment_post_payment",
                 "PaymentPostPayment",
                 PAYMENT_BASE,
                 "custom",
             ),
             (
-                "generated.automatic_payments.models.subscription_creation_request",
+                "khipu_sdk._generated.automatic_payments.models.subscription_creation_request",
                 "SubscriptionCreationRequest",
                 SUBSCRIPTION_BASE,
                 "service_reference",
             ),
             (
-                "generated.automatic_payments.models.charge_request",
+                "khipu_sdk._generated.automatic_payments.models.charge_request",
                 "ChargeRequest",
                 CHARGE_BASE,
                 "custom",

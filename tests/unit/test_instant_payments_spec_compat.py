@@ -8,9 +8,9 @@ while Khipu's published Instant Payments document declares only
 ``openapi/khipu-instant-payments.yaml`` stays Khipu's document verbatim.
 ``tools/spec_compat.py`` adds the one missing value to a derived copy at
 generation time. These tests pin that the overlay is exactly that narrow, that
-it is reflected in ``generated/``, and that it announces its own removal: once
-Khipu publishes ``direct_debit``, the upstream guard below fails, and so does
-``make generate-all``, until the overlay entry is deleted.
+it is reflected in ``khipu_sdk/_generated/``, and that it announces its own
+removal: once Khipu publishes ``direct_debit``, the upstream guard below fails,
+and so does ``make generate-all``, until the overlay entry is deleted.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from generated.instant_payments.models.payment_get_payment_payment_method import (
+from khipu_sdk._generated.instant_payments.models.payment_get_payment_payment_method import (
     PaymentGetPaymentPaymentMethod,
 )
 
@@ -159,7 +159,7 @@ class TestUpstreamStillOmitsDirectDebit:
 
 class TestGeneratedClientCarriesTheOverlay:
     def test_generated_enum_is_upstream_plus_direct_debit_and_nothing_else(self):
-        """Fails if generated/ was produced from the raw spec, bypassing the overlay."""
+        """Fails if the generated client was produced from the raw spec, bypassing the overlay."""
         assert {member.value for member in PaymentGetPaymentPaymentMethod} == {
             *PUBLISHED,
             "direct_debit",

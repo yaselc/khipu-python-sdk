@@ -103,6 +103,12 @@ _CLOSED_MESSAGE = (
     "requests. No request was sent."
 )
 
+#: Private package holding the OpenAPI-generated clients (#56). It lives inside
+#: ``khipu_sdk`` so that no top-level ``generated`` package is installed, which
+#: an unrelated package of the same name in a consumer project or another
+#: distribution could shadow, overwrite or be hidden by.
+_GENERATED_PACKAGE = "khipu_sdk._generated"
+
 _MISSING_GENERATED_HINT = (
     "The generated Khipu clients are not importable. This normally means the "
     "installed distribution is incomplete; reinstall the package, or run "
@@ -266,7 +272,8 @@ class KhipuClient:
         try:
             return importlib.import_module(module_path)
         except ModuleNotFoundError as exc:
-            if (exc.name or "").startswith("generated"):
+            name = exc.name or ""
+            if name == _GENERATED_PACKAGE or name.startswith(f"{_GENERATED_PACKAGE}."):
                 raise KhipuConfigurationError(
                     f"{_MISSING_GENERATED_HINT} (missing module: {exc.name})"
                 ) from exc
@@ -285,10 +292,10 @@ class KhipuClient:
         )
 
     def _build_instant_client(self) -> Any:
-        return self._build_client("generated.instant_payments.client")
+        return self._build_client("khipu_sdk._generated.instant_payments.client")
 
     def _build_automatic_client(self) -> Any:
-        return self._build_client("generated.automatic_payments.client")
+        return self._build_client("khipu_sdk._generated.automatic_payments.client")
 
     def _require(self, client: Any, *, name: str) -> Any:
         self._ensure_open()
@@ -518,9 +525,11 @@ class KhipuClient:
             if value is not None:
                 payload[key] = value
 
-        endpoint = self._import_generated("generated.instant_payments.api.default.post_payment")
+        endpoint = self._import_generated(
+            "khipu_sdk._generated.instant_payments.api.default.post_payment"
+        )
         model_cls = self._import_generated(
-            "generated.instant_payments.models.payment_post_payment"
+            "khipu_sdk._generated.instant_payments.models.payment_post_payment"
         ).PaymentPostPayment
 
         result = self._invoke(
@@ -546,7 +555,7 @@ class KhipuClient:
         """
         client = self._require(self._instant, name="Instant Payments")
         endpoint = self._import_generated(
-            "generated.instant_payments.api.default.get_payment_by_id"
+            "khipu_sdk._generated.instant_payments.api.default.get_payment_by_id"
         )
 
         result = self._invoke(endpoint, client=client, id=payment_id)
@@ -619,10 +628,10 @@ class KhipuClient:
         }
 
         endpoint = self._import_generated(
-            "generated.automatic_payments.api.default.create_subscription_1"
+            "khipu_sdk._generated.automatic_payments.api.default.create_subscription_1"
         )
         model_cls = self._import_generated(
-            "generated.automatic_payments.models.subscription_creation_request"
+            "khipu_sdk._generated.automatic_payments.models.subscription_creation_request"
         ).SubscriptionCreationRequest
 
         result = self._invoke(
@@ -653,7 +662,7 @@ class KhipuClient:
         """
         client = self._require(self._automatic, name="Automatic Payments")
         endpoint = self._import_generated(
-            "generated.automatic_payments.api.default.fetch_subscription_status_1"
+            "khipu_sdk._generated.automatic_payments.api.default.fetch_subscription_status_1"
         )
 
         result = self._invoke(endpoint, client=client, id=subscription_id)
@@ -740,13 +749,13 @@ class KhipuClient:
                 payload[key] = optional_value
 
         endpoint = self._import_generated(
-            "generated.automatic_payments.api.default.create_charge_1"
+            "khipu_sdk._generated.automatic_payments.api.default.create_charge_1"
         )
         model_cls = self._import_generated(
-            "generated.automatic_payments.models.charge_request"
+            "khipu_sdk._generated.automatic_payments.models.charge_request"
         ).ChargeRequest
         result_cls = self._import_generated(
-            "generated.automatic_payments.models.charge_result"
+            "khipu_sdk._generated.automatic_payments.models.charge_result"
         ).ChargeResult
 
         result = self._invoke(

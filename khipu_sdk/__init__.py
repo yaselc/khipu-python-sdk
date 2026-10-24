@@ -1,8 +1,9 @@
 """Python SDK for the Khipu Instant Payments (v3) and Automatic Payments (v1) APIs.
 
 Everything a consuming application needs is exported here. Importing from
-``khipu_sdk.client``, ``khipu_sdk.errors`` etc. also works, but importing from
-``generated.*`` is not supported.
+``khipu_sdk.client``, ``khipu_sdk.errors`` etc. also works, but the
+OpenAPI-generated clients in ``khipu_sdk._generated`` are private: importing
+from them is not supported.
 """
 
 from .client import KhipuClient

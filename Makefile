@@ -7,7 +7,10 @@ OPENAPI_CLIENT ?= openapi-python-client
 CURL ?= curl
 
 OPENAPI_DIR := openapi
-GENERATED_DIR := generated
+# The generated clients are a private subpackage of the SDK (#56), so the wheel
+# ships a single top-level package and cannot collide with an unrelated
+# top-level `generated` package in a consumer project or another distribution.
+GENERATED_DIR := khipu_sdk/_generated
 
 # OpenAPI specs
 INSTANT_SPEC := $(OPENAPI_DIR)/khipu-instant-payments.yaml
@@ -96,11 +99,12 @@ download-specs: download-instant download-automatic
 ensure-generated-package:
 	@mkdir -p $(GENERATED_DIR)
 	@printf '%s\n' \
-		'"""Namespace package for OpenAPI-generated Khipu clients.' \
+		'"""Private package holding the OpenAPI-generated Khipu clients.' \
 		'' \
-		'This file exists so that the generated clients are discovered by setuptools and' \
-		'shipped inside the built distribution. It is recreated deterministically by' \
-		'``make generate-all`` (see the ``ensure-generated-package`` target) so it' \
+		'Nothing under ``khipu_sdk._generated`` is a supported API: import only from' \
+		'``khipu_sdk``. This file makes the generated clients a regular subpackage so' \
+		'setuptools ships them inside the distribution. It is recreated deterministically' \
+		'by ``make generate-all`` (see the ``ensure-generated-package`` target) so it' \
 		'survives regeneration.' \
 		'' \
 		'Do not add logic here. All hand-written code belongs in ``khipu_sdk``.' \

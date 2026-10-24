@@ -16,11 +16,11 @@ from __future__ import annotations
 
 import pytest
 
-from generated.automatic_payments.models.subscription_creation_request import (
+from khipu_sdk._generated.automatic_payments.models.subscription_creation_request import (
     SubscriptionCreationRequest,
 )
-from generated.automatic_payments.models.subscription_status import SubscriptionStatus
-from generated.automatic_payments.models.subscription_status_status import (
+from khipu_sdk._generated.automatic_payments.models.subscription_status import SubscriptionStatus
+from khipu_sdk._generated.automatic_payments.models.subscription_status_status import (
     SubscriptionStatusStatus,
 )
 
