@@ -33,7 +33,7 @@ classifiers = [
 dependencies = [
   # Used directly by khipu_sdk and by the generated clients.
   "httpx>=0.25",
-  # Required by the generated attrs models shipped under generated/.
+  # Required by the generated attrs models shipped under khipu_sdk/_generated/.
   "attrs>=23.1",
   # Required by generated models that parse ISO-8601 timestamps (dateutil.parser.isoparse).
   "python-dateutil>=2.8",
@@ -59,10 +59,11 @@ dev = [
   "mypy==1.19.1",
   "build>=1.0",
   # Pinned exactly, not with >= or ~=: the code generator is the build tool
-  # that produces the committed contents of generated/, so a floating version
-  # would let a generator release change that code without any change in this
-  # repository. Bumping it is a deliberate maintenance step: change the pin,
-  # run `make generate-all`, and review the resulting diff.
+  # that produces the committed contents of khipu_sdk/_generated/, so a
+  # floating version would let a generator release change that code without
+  # any change in this repository. Bumping it is a deliberate maintenance
+  # step: change the pin, run `make generate-all`, and review the resulting
+  # diff.
   "openapi-python-client==0.28.0",
 ]
 

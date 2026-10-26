@@ -7,9 +7,10 @@ https://semver.org/
 
 ## [Unreleased]
 
-Target release: 0.4.0
+## [0.4.0] - 2026-10-26
 
-A minor release with the remaining remediations of the audit of 0.3.4 (#41).
+A minor release (#60, #62) with the remaining remediations of the audit of
+0.3.4 (#41).
 It rejects fractional amounts that would change on the way to Khipu (#48),
 validates `KhipuConfig` on construction (#50), documents and tests the
 `**extra_fields` contract (#52), adds `KhipuClient.close()` and context
@@ -52,7 +53,7 @@ were accepted before now fail before any request: an invalid configuration
   package is no longer distributed. The supported public API, everything
   imported from `khipu_sdk`, is unchanged, and so are request and response
   behaviour, errors, timeouts and the no-retry policy. Importing `generated.*`
-  directly was never supported and breaks from the next release on; no
+  directly was never supported and breaks from this release on; no
   compatibility alias is provided, because one would keep the collision.
   `khipu_sdk._generated` is private as well. The generated files are moved
   unchanged, from the same specs and the same pinned generator. No public API,
