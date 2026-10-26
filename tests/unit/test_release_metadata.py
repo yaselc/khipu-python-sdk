@@ -86,7 +86,7 @@ LATEST_PUBLISHED_RELEASE = ("0.3.5", "2026-10-21")
 
 #: ``project.version`` while it is prepared but not tagged or uploaded;
 #: ``None`` when the declared version is ``LATEST_PUBLISHED_RELEASE``.
-RELEASE_CANDIDATE: str | None = None
+RELEASE_CANDIDATE: str | None = "0.4.0"
 
 #: Wording that only described 0.3.3 before it was published (Issue #22).
 PRE_RELEASE_WORDING = (

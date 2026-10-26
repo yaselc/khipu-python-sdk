@@ -7,6 +7,21 @@ https://semver.org/
 
 ## [Unreleased]
 
+Target release: 0.4.0
+
+A minor release with the remaining remediations of the audit of 0.3.4 (#41).
+It rejects fractional amounts that would change on the way to Khipu (#48),
+validates `KhipuConfig` on construction (#50), documents and tests the
+`**extra_fields` contract (#52), adds `KhipuClient.close()` and context
+management (#54), and moves the generated clients from the top-level
+`generated` package into the private `khipu_sdk._generated` package (#56).
+Everything imported from `khipu_sdk` keeps working. Code that imported
+`generated.*` directly, which was never supported, breaks. Some inputs that
+were accepted before now fail before any request: an invalid configuration
+(including a set but empty `{prefix}TIMEOUT` or `{prefix}BASE_URL`) raises
+`KhipuConfigurationError`, and an amount that cannot be sent exactly raises
+`KhipuValidationError`. No OpenAPI spec or runtime dependency changes.
+
 ### Added
 
 - **`KhipuClient.close()` and synchronous context management (#54).**
