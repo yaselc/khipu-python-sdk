@@ -91,13 +91,13 @@ The SDK is published on PyPI as
 name is `khipu_sdk`.
 
 ```bash
-pip install khipu-python-sdk==0.3.5
+pip install khipu-python-sdk==0.4.0
 ```
 
 In `requirements.txt`:
 
 ```text
-khipu-python-sdk==0.3.5
+khipu-python-sdk==0.4.0
 ```
 
 Or in `pyproject.toml`:
@@ -105,7 +105,7 @@ Or in `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-  "khipu-python-sdk==0.3.5",
+  "khipu-python-sdk==0.4.0",
 ]
 ```
 
@@ -121,7 +121,7 @@ built from a tag contains both `khipu_sdk` and the generated clients, so a Git
 install is equally functional:
 
 ```text
-khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.3.5
+khipu-python-sdk @ git+https://github.com/yaselc/khipu-python-sdk.git@v0.4.0
 ```
 
 Pin a tag rather than `@master`: `master` is not a release.

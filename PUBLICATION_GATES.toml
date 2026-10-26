@@ -13,7 +13,8 @@
 
 [khipu_redistribution]
 # Explicit basis to redistribute Khipu's OpenAPI documents (openapi/) and the
-# clients generated from them (generated/, shipped in the wheel and sdist).
+# clients generated from them (khipu_sdk/_generated/, shipped in the wheel and
+# sdist).
 # Status: APPROVED (Issue #26). Khipu confirmed in writing that this project
 # may host its published OpenAPI documents, generate Python clients from them,
 # redistribute the generated code and publish khipu-python-sdk on GitHub and
